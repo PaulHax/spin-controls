@@ -17,9 +17,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
-	this.rotateSensativity = 1.0;
+	this.rotateSensativity = 1.0; // Keep at 1 for direct touching feel
 	this.staticMoving = false;
-	this.dampingFactor = 0.1;
+	this.dampingFactor = 0.05; // Increase for more friction
 
 	// internals
 
@@ -33,14 +33,13 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_touchPrev = new THREE.Vector2(),
 		_touchCurr = new THREE.Vector2(),
 
-		_moveDelta = new THREE.Vector2(),
-
 		_isPointerDown = false,
 
 		_ray = new THREE.Ray(),
 		_trackBallSphere = new THREE.Sphere(),
 
-		_EPS = 0.000001;
+		_EPS = 0.000001,
+		_OFF_TRACKBALL_VELOCITY_GAIN = 8.0; // ToDo: Base this on angle change around sphere edge?
 
 
 	var changeEvent = { type: 'change' };
@@ -59,6 +58,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 
+			_this.isMouseMovedThisFrame = false;
+
 		};
 
 	}() );
@@ -66,9 +67,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.updateAngularVelocity = ( function () {
 
-		var moveDelta = new THREE.Vector2(),
-			quaternion = new THREE.Quaternion(),
-			objectWorldPos = new THREE.Vector3(),
+		var objectPos = new THREE.Vector3(),
 			objectToCamera = new THREE.Vector3(),
 			objectPlane = new THREE.Plane(),
 
@@ -77,10 +76,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			currentInputPos = new THREE.Vector3(),
 			lastInputPos = new THREE.Vector3(),
 
+			deltaMouse = new THREE.Vector2(),
+			polarVel = new THREE.Vector3(),
+
 			lastTime,
 			deltaTime,
 			timeStamp,
-			trackballRadius,
 			angle;
 
 		return function updateAngularVelocity( currentNdc, lastNdc ) {
@@ -90,9 +91,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			// Intersect mouse on plane at object with normal pointing to camera
 
-			objectWorldPos.setFromMatrixPosition( _this.object.matrixWorld );
-			objectToCamera.copy( _this.camera.position ).sub( objectWorldPos );
-			objectPlane.setFromNormalAndCoplanarPoint( objectToCamera, objectWorldPos );
+			objectPos.setFromMatrixPosition( _this.object.matrixWorld );
+			objectToCamera.copy( _this.camera.position ).sub( objectPos );
+			objectPlane.setFromNormalAndCoplanarPoint( objectToCamera, objectPos );
 
 			_ray.origin.copy( _this.camera.position );
 
@@ -119,49 +120,79 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 
-			//ToDo: Replace below with normalized rotation when pointer further than radius
-
 			// Put in object position space to find trackball radius
-			currentInputPos.sub( objectWorldPos );
-			lastInputPos.sub( objectWorldPos );
-			// Trackball radius fits both points, but does not shrink so much that you are always acting on edge
-			trackballRadius = Math.max( currentInputPos.length(), lastInputPos.length(), _this.trackballRadius );
+			currentInputPos.sub( objectPos );
+			lastInputPos.sub( objectPos );
+			
+			// Is pointer over trackball?
+			if( currentInputPos.length() < _this.trackballRadius && lastInputPos.length() < _this.trackballRadius ) {
+			
+				// Project mouse on trackball sphere
 
-			_trackBallSphere.set( objectWorldPos, trackballRadius);
+				if( _this.trackballRadius <= objectToCamera.length()  ) { // If trackball smaller than camera distance
 
-			// Project mouse on trackball sphere
+					_trackBallSphere.set( objectPos, _this.trackballRadius);
+					_ray.direction.copy( currentInputDirection );
 
-			if( trackballRadius <= objectToCamera.length()  ) { // If trackball smaller than camera distance
+					if( _ray.intersectSphere( _trackBallSphere, currentInputPos ) == null ) {
 
-				_ray.direction.copy( currentInputDirection );
+						return;
 
-				if( _ray.intersectSphere( _trackBallSphere, currentInputPos ) == null ) {
+					}
 
-					return;
+					_ray.direction.copy( lastInputDirection );
+
+					if( _ray.intersectSphere( _trackBallSphere, lastInputPos ) == null ) {
+
+						return;
+
+					}
+
+					// Put in object position space
+					currentInputPos.sub( objectPos );
+					lastInputPos.sub( objectPos );
 
 				}
 
-				_ray.direction.copy( lastInputDirection );
+				angle = lastInputPos.angleTo( currentInputPos ) * _this.rotateSensativity / deltaTime;
 
-				if( _ray.intersectSphere( _trackBallSphere, lastInputPos ) == null ) {
+				// Change in angular vel
+				_angularVelocity.crossVectors( lastInputPos, currentInputPos );
+				_angularVelocity.setLength( angle ); // Just set it because we are touching trackball without sliding
 
-					return;
+			}	else {
 
-				}
+				// Keep rotating based on delta mouse in normalized device coordinates
 
-				// Put in object position space
-				currentInputPos.sub( objectWorldPos );
-				lastInputPos.sub( objectWorldPos );
+				//ToDo: Simplify by find delta mouse polar coordinates with THREE.Sphere?
+				
+				objectPos.project( _this.camera );
+				
+				deltaMouse.subVectors(currentNdc, lastNdc);
+
+				// Find change in mouse radius to trackball center
+				var ballAngleSize = Math.atan( _this.trackballRadius / objectToCamera.length() );
+				var ndcPerDegree = 1 / ( _this.camera.fov / 2 );
+				var ndcPerBall = ndcPerDegree / ballAngleSize ;				
+				lastNdc.sub(objectPos) // Move into object space
+				lastNdc.normalize();
+				var deltaRadius = deltaMouse.dot( lastNdc ) * ndcPerBall / deltaTime *
+					 _this.rotateSensativity * _OFF_TRACKBALL_VELOCITY_GAIN;
+
+				_angularVelocity.crossVectors( objectToCamera, lastInputPos );
+				_angularVelocity.setLength( deltaRadius ); // Just set it because we are touching trackball without sliding
+
+				// Find polar angle change
+				angle = lastInputPos.angleTo( currentInputPos ) * _this.rotateSensativity / deltaTime;
+				polarVel.crossVectors( lastInputPos, currentInputPos );
+				polarVel.setLength( angle ); 
+
+				_angularVelocity.add( polarVel );
 
 			}
 
-			angle = lastInputPos.angleTo( currentInputPos ) * _this.rotateSensativity / deltaTime;
+			_this.applyVelocity(); // DO IT NOW!
 
-			// Change in angular vel
-			_angularVelocity.crossVectors( lastInputPos, currentInputPos );
-			_angularVelocity.setLength( angle ); // Just set it because we are touching trackball without sliding
-
-			_this.applyVelocity();
 		};
 
 	}() );
@@ -182,7 +213,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			deltaTime = ( timeStamp - lastTime ) / 1000.0;
 			lastTime = timeStamp;
 			deltaAngle = _angularVelocity.length();
+
 			if ( deltaAngle && deltaTime ) {
+
 				normalizedAxis.copy( _angularVelocity );
 				normalizedAxis.normalize();
 				quat.setFromAxisAngle( normalizedAxis, deltaAngle * deltaTime );
@@ -214,13 +247,13 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		return function isHittingObject( pointerNDC ) {
 
 			currentInputDirection.set( pointerNDC.x, pointerNDC.y, .5 )
-			currentInputDirection.unproject( _this.camera ) //in world space
-			currentInputDirection.sub( _this.camera.position ).normalize() //sub to put around origin
+			currentInputDirection.unproject( _this.camera ) // Put in world space
+			currentInputDirection.sub( _this.camera.position ).normalize() // Move to camera space
 			_ray.direction.copy( currentInputDirection )
 			_ray.origin.copy( _this.camera.position );
 
 			objectWorldPos.setFromMatrixPosition( _this.object.matrixWorld );
-			_trackBallSphere.set( objectWorldPos, this.trackballRadius);
+			_trackBallSphere.set( objectWorldPos, _this.trackballRadius);
 
 			if( _ray.intersectSphere( _trackBallSphere, objectWorldPos ) == null ) {
 
@@ -319,8 +352,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_mousePrev.copy( _mouseCurr );
 		_mouseCurr.copy( getPointerInNdc( event.pageX, event.pageY ) );
-
 		_this.updateAngularVelocity( _mouseCurr, _mousePrev );
+
+		_this.isMouseMovedThisFrame = true;
 
 	}
 
@@ -329,6 +363,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		if ( _this.enabled === false ) return;
 
 		event.preventDefault();
+
+		if(!_this.isMouseMovedThisFrame) {
+			_angularVelocity.set( 0, 0, 0 );
+		}
 
 		_isPointerDown = false;
 
@@ -390,7 +428,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	};
 
-
 	this.domElement.addEventListener( 'resize', onWindowResize, false );
 	this.domElement.addEventListener( 'mousedown', onMouseDown, false );
 
@@ -398,11 +435,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.domElement.addEventListener( 'touchend', touchend, false );
 	this.domElement.addEventListener( 'touchmove', touchmove, false );
 
-
-
 	_this.onWindowResize();
 	// force an update at start
-	this.update();
+	_this.update();
 
 };
 
