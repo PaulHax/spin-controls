@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>three.js webgl - spin controls</title>
+		<title>SpinControls Demo</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
@@ -22,6 +22,7 @@
 				padding: 15px;
 				z-index:100;
 				box-sizing: border-box;
+				pointer-events: none;
 			}
 			
 		</style>
@@ -29,18 +30,17 @@
 	<body>
 
 		<div id="info">
-      Spin Controls <br /> Left click on spheres to spin them as if touching a trackball.
-		</div>
-		<div id="info">
-      
+			Spin Controls <br /> Left click or touch spheres to spin them as if touching a trackball.  
+			<br /> Elsewhere: Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch
 		</div>
 
     <script src="three.min.js"></script>
 		<script src="SpinControls.js"></script>
-    <script src="OrbitControls.js"></script>
+		<script src="CameraSpinControls.js"></script> <!-- After SpinControls -->
 
 		<script>
-			var camera, scene, renderer, spinControlBig, spinControlSmall;
+			var camera, scene, renderer, smallSpinner, bigSpinner, spinControlBig, spinControlSmall, fidgitSpinners;
+			var isTouched;
 			init();
 			render();
       animate(0);
@@ -52,61 +52,200 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
         
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
         camera.position.set( 1000, 500, 1000 );
-        camera.lookAt( 0, 0, 0 );
+				camera.lookAt( 0, 0, 0 );								
+
 				scene = new THREE.Scene();
-				scene.add( new THREE.GridHelper( 1000, 10 ) );
+
+				scene.add( new THREE.GridHelper( 1000, 4 ) );
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
+				
+				window.addEventListener( 'mousedown', onMouseDown, true ); // get event first to enable the correct control
+				window.addEventListener( 'mouseup', onMouseUp, false ); // get event last, so false on capture
+				window.addEventListener( 'wheel', onMouseWheel, true );
+				window.addEventListener( 'wheel', onMouseWheelOff, false );
+				
+				renderer.domElement.addEventListener( 'touchstart', onTouchStart, false );
+				window.addEventListener( 'touchend', onTouchEnd, false ); // get event last, so false on capture
 
+
+				// Spinner 3D graphics
         var radius = 50;
-        var group = new THREE.Group();
-        group.position.set(0, 0, 300);
+        smallSpinner = new THREE.Group();
+        smallSpinner.position.set(0, 0, 300);
+				var spinAxis = new THREE.Vector3( 0, 1, 0 );
+				var material = new THREE.LineBasicMaterial({
+					color: 0xff0000
+				});
+				var geometry = new THREE.Geometry();
+				geometry.vertices.push(
+					new THREE.Vector3().copy( spinAxis ).multiplyScalar( radius * 1.2 ),
+					new THREE.Vector3().copy( spinAxis ).multiplyScalar( radius * -1.2 )
+				);
+				var line = new THREE.Line( geometry, material );
+				smallSpinner.add( line );
         var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
-        var lineMaterial = new THREE.LineBasicMaterial( { color: 0x6666FF, transparent: true, opacity: 0.5 } );
-        var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x333333FF, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
+        var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.2 } );
+				smallSpinner.add( new THREE.LineSegments( geometry, lineMaterial ) );				
+				var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x333333FF, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
+				smallSpinner.sphere = new THREE.Mesh( geometry, meshMaterial );
+        smallSpinner.add( smallSpinner.sphere );
+				scene.add( smallSpinner );
+				
+				spinControlSmall = new SpinControls( smallSpinner, radius, camera, renderer.domElement );
+				spinControlSmall.spinAxisConstraint = spinAxis;
+        
+        var radius = 200;
+        bigSpinner = new THREE.Group();
+        bigSpinner.position.set(100, 0, 0);
+        var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
+        var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.2 } );
+				bigSpinner.add( new THREE.LineSegments( geometry, lineMaterial ) );
+				var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );        
+				bigSpinner.sphere = new THREE.Mesh( geometry, meshMaterial );
+        bigSpinner.add( bigSpinner.sphere );
+				bigSpinner.add( new THREE.Mesh( geometry, meshMaterial ) );
+        scene.add( bigSpinner );
+        
+        spinControlBig = new SpinControls( bigSpinner, radius, camera, renderer.domElement);
+        
+				// Camera control UI
+				group = new THREE.Group();
+        group.position.set(0, 0, 0);
+        var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
+				meshMaterial = new THREE.MeshBasicMaterial( { color: 0xaaaaff, flatShading: true, transparent: true, opacity: 0.2 } );
+        lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
         group.add( new THREE.LineSegments( geometry, lineMaterial ) );
         group.add( new THREE.Mesh( geometry, meshMaterial ) );
 				scene.add( group );
+				group.visible = false;
+				group.renderOrder = 1; // Don't draw to early, thus obscuring other transparent objects        
 				
-        // Construct before other controls so it can event.stopImmediatePropagation()
-        spinControlSmall = new SpinControls( group, radius, camera, renderer.domElement );        
-        
-        radius = 200;
-        group = new THREE.Group();
-        group.position.set(100, 0, 0);
-        var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
-        var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
-        var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
-        group.add( new THREE.LineSegments( geometry, lineMaterial ) );
-        group.add( new THREE.Mesh( geometry, meshMaterial ) );
-        scene.add( group );
-        
-        // // Always not selected if pointer intersects with smaller sphere above
-        spinControlBig = new SpinControls( group, radius, camera, renderer.domElement );        
-        
-				controls = new THREE.OrbitControls( camera, renderer.domElement );
-				controls.enableDamping = true;
-				controls.dampingFactor = 0.25;
-				controls.screenSpacePanning = true;
-				controls.minDistance = 100;
-				controls.maxDistance = 5000;
-				controls.maxPolarAngle = Math.PI / 2;        
-        
+				controls = new CameraSpinControls( camera, renderer.domElement );
+
+				function updateCameraSpinUI() {
+
+					group.position.copy( controls.target );
+					var r = controls.spinControl.trackballRadius;
+					group.scale.set( r, r, r );
+
+				}
+
+				controls.addEventListener( 'start', function ( event ) {
+
+					group.visible = true;
+					updateCameraSpinUI();
+
+				} );
+
+				controls.addEventListener( 'change', function ( event ) {
+
+					updateCameraSpinUI();
+
+				} );
+				
+				controls.addEventListener( 'end', function ( event ) {
+
+					group.visible = false;
+
+				} );
+
+				// Pick which control gets to react to input.
+				// Raycast pointer to pick which sphere, else camera controls.
+				fidgetSpinners = [ smallSpinner.sphere, bigSpinner.sphere ];	
+				spinControlSmall.enabled = false;
+				spinControlBig.enabled = false;
+				controls.enabled = false;
+				
+				function onMouseDown( event ) {
+
+					if ( event.button === 0 ) {
+
+						pickControlToEnable(	getPointerInNdc( event.pageX, event.pageY ) );
+
+					}	else {
+
+						controls.enabled = true;
+
+					}
+					
+				}
+
+				function onMouseUp( event ) {
+
+					spinControlSmall.enabled = false;
+					spinControlBig.enabled = false;
+					controls.enabled = false;
+
+				}
+
+				function onMouseWheel( event ) {
+
+					controls.enabled = true;
+
+				}
+				function onMouseWheelOff( event ) {
+
+					controls.enabled = false;
+
+				}
+				
 				window.addEventListener( 'resize', onWindowResize, false );
 
 			}
+
+			var pickControlToEnable = ( function () {
+
+				var raycaster = new THREE.Raycaster();
+				
+				var resultArray = [];
+
+				return function pickControlToEnable( pointerNDC ) {
+
+					raycaster.setFromCamera(pointerNDC, camera);
+					resultArray.length = 0;
+					raycaster.intersectObjects(fidgetSpinners, false, resultArray);
+
+					if( resultArray.length > 0 ) {
+
+						if( resultArray[0].object === smallSpinner.sphere ) {
+
+							spinControlSmall.enabled = true;
+
+						} else if( resultArray[0].object === bigSpinner.sphere ) {
+
+							spinControlBig.enabled = true;
+
+						} else {
+
+							console.log( "Should not get here" );
+
+						}
+
+					} else {
+
+						controls.enabled = true;
+
+					}
+
+				}
+
+			}() );
+
       
 			function onWindowResize() {
 
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();        
-				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setSize( window.innerWidth, window.innerHeight );				
+				updateCanvas();
         spinControlSmall.onWindowResize();
-        spinControlBig.onWindowResize();
+				spinControlBig.onWindowResize();
+				controls.onWindowResize();
 				render();
 
 			}
@@ -126,6 +265,74 @@
 				renderer.render( scene, camera );
 				
 			}
+
+			var canvas = {};
+			function updateCanvas() {
+
+				if ( renderer.domElement === document ) {
+
+					canvas.left = 0;
+					canvas.top = 0;
+					canvas.width = window.innerWidth;
+					canvas.height = window.innerHeight;
+
+				} else {
+
+					var box = renderer.domElement.getBoundingClientRect();
+					// adjustments come from similar code in the jquery offset() function
+					var d = renderer.domElement.ownerDocument.documentElement;
+					canvas.left = box.left + window.pageXOffset - d.clientLeft;
+					canvas.top = box.top + window.pageYOffset - d.clientTop;
+					canvas.width = box.width;
+					canvas.height = box.height;
+
+				}
+
+			}
+
+			updateCanvas();
+
+			var getPointerInNdc = ( function () {
+
+				var vector = new THREE.Vector2();
+
+				return function getPointerInNdc( pageX, pageY ) {
+
+					vector.set(
+						( ( pageX - canvas.width * 0.5 - canvas.left ) / ( canvas.width * 0.5 ) ),
+						( ( canvas.height + 2 * ( canvas.top - pageY ) ) / canvas.height )
+					);
+
+					return vector;
+
+				};
+
+			}() );
+
+			function onTouchStart( event ) {
+
+				if ( !isTouched ) {
+
+					isTouched = true;
+					pickControlToEnable(	getPointerInNdc( event.changedTouches[ 0 ].pageX, event.changedTouches[ 0 ].pageY ) );
+
+				}
+
+			}
+
+			function onTouchEnd( event ) {
+
+				if( event.touches.length === 0 ) {
+					
+					spinControlSmall.enabled = false;
+					spinControlBig.enabled = false;
+					controls.enabled = false;
+					isTouched = false;
+
+				}
+
+			}
+
 		</script>
 
 	</body>

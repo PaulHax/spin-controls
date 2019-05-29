@@ -1,5 +1,5 @@
 /**
- * @author Paul Elliott / http://vizworkshop.com
+ * @author PaulKElliott / http://vizworkshop.com
  */
 
 var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
@@ -7,9 +7,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	var _this = this;
 
 	this.object = object;
+	this.trackballRadius = trackBallRadius;
 	this.camera = camera;
 	this.domElement = ( domElement !== undefined ) ? domElement : document;
-	this.trackballRadius = trackBallRadius;
 
 	// API
 
@@ -18,20 +18,25 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
 	this.rotateSensativity = 1.0; // Keep at 1 for direct touching feel
-	this.staticMoving = false;
-	this.dampingFactor = 0.05; // Increase for more friction
+	this.enableDamping = true;
+	this.dampingFactor = 5; // Increase for more friction
 
-	// internals
+	this.spinAxisConstraint; // Set to THREE.vector3 for limit spinning around specific axis
+
+	// Internals
 
 	var _angularVelocity = new THREE.Vector3(0, 0, 0),
 		_lastQuaternion = new THREE.Quaternion(),
+		_lastVelTime,
 
 		_mousePrev = new THREE.Vector2(),
 		_mouseCurr = new THREE.Vector2(),
+		_lastMouseEventTime = 0,
 
 		// Seperate touch variables as might be mouseing and touching at same time on laptop?
 		_touchPrev = new THREE.Vector2(),
 		_touchCurr = new THREE.Vector2(),
+		_lastTouchEventTime = 0,
 
 		_isPointerDown = false,
 
@@ -48,17 +53,31 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.update = ( function () {
 
+		var currentTime;
+		var lastTime = performance.now() / 1000.0;
+		var deltaTime;
+
 		return function update() {
 
-			if( !_isPointerDown && !_this.staticMoving ) {
+			currentTime = performance.now() / 1000.0;
+			deltaTime = currentTime - lastTime;
+			lastTime = currentTime;
 
-				_angularVelocity.multiplyScalar( ( 1.0 - _this.dampingFactor ) );
+			if( !_isPointerDown && _this.enableDamping ) {
+
+				_angularVelocity.multiplyScalar( 1 / ( deltaTime * _this.dampingFactor + 1 ) );
 
 				_this.applyVelocity();
 
 			}
 
-			_this.isMouseMovedThisFrame = false;
+			if( !_this.enableDamping ) {
+
+				_lastVelTime = performance.now(); // ToDo Avoid this hack.  Causes trackball drift.
+
+			}
+			
+			_this.isPointerMovedThisFrame = false;
 
 		};
 
@@ -79,15 +98,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			deltaMouse = new THREE.Vector2(),
 			polarVel = new THREE.Vector3(),
 
-			lastTime,
-			deltaTime,
-			timeStamp,
 			angle;
 
-		return function updateAngularVelocity( currentNdc, lastNdc ) {
-			timeStamp = performance.now();
-			deltaTime = ( timeStamp - lastTime ) / 1000.0;
-			lastTime = timeStamp;
+		return function updateAngularVelocity( currentNdc, lastNdc, deltaTime ) {
 
 			// Intersect mouse on plane at object with normal pointing to camera
 
@@ -108,7 +121,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 
-			// Recalculate lastInputDirection because touch and mouse pointers may act at same time
+			// Put in object position space to find trackball radius
+			currentInputPos.sub( objectPos );
+
 			lastInputDirection.set( lastNdc.x, lastNdc.y, .5 );
 			lastInputDirection.unproject( _this.camera );
 			lastInputDirection.sub( _this.camera.position ).normalize();
@@ -120,10 +135,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 
-			// Put in object position space to find trackball radius
-			currentInputPos.sub( objectPos );
 			lastInputPos.sub( objectPos );
-			
+
 			// Is pointer over trackball?
 			if( currentInputPos.length() < _this.trackballRadius && lastInputPos.length() < _this.trackballRadius ) {
 			
@@ -154,7 +167,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 				}
 
-				angle = lastInputPos.angleTo( currentInputPos ) * _this.rotateSensativity / deltaTime;
+				angle = lastInputPos.angleTo( currentInputPos ) / deltaTime;
 
 				// Change in angular vel
 				_angularVelocity.crossVectors( lastInputPos, currentInputPos );
@@ -171,19 +184,22 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				deltaMouse.subVectors(currentNdc, lastNdc);
 
 				// Find change in mouse radius to trackball center
-				var ballAngleSize = Math.atan( _this.trackballRadius / objectToCamera.length() );
-				var ndcPerDegree = 1 / ( _this.camera.fov / 2 );
-				var ndcPerBall = ndcPerDegree / ballAngleSize ;				
+				// var ballAngleSize = Math.atan( _this.trackballRadius / objectToCamera.length() );
+				// var ndcPerDegree = 1 / ( _this.camera.fov / 2 );
+				// var ndcPerBall = ndcPerDegree / ballAngleSize;				
+				// Same as above in one line
+				var ndcPerBall = ( 1 / ( _this.camera.fov / 2 ) ) // NDC per degree
+					/ ( Math.atan( _this.trackballRadius / objectToCamera.length() ) ); // Ball angle size
+
 				lastNdc.sub(objectPos) // Move into object space
 				lastNdc.normalize();
-				var deltaRadius = deltaMouse.dot( lastNdc ) * ndcPerBall / deltaTime *
-					 _this.rotateSensativity * _OFF_TRACKBALL_VELOCITY_GAIN;
+				var deltaRadius = deltaMouse.dot( lastNdc ) * ndcPerBall / deltaTime * _OFF_TRACKBALL_VELOCITY_GAIN;
 
 				_angularVelocity.crossVectors( objectToCamera, lastInputPos );
 				_angularVelocity.setLength( deltaRadius ); // Just set it because we are touching trackball without sliding
 
 				// Find polar angle change
-				angle = lastInputPos.angleTo( currentInputPos ) * _this.rotateSensativity / deltaTime;
+				angle = lastInputPos.angleTo( currentInputPos ) / deltaTime;
 				polarVel.crossVectors( lastInputPos, currentInputPos );
 				polarVel.setLength( angle ); 
 
@@ -204,28 +220,37 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			normalizedAxis = new THREE.Vector3(),
 			deltaAngle,
 			deltaTime,
-			lastTime,
 			timeStamp;
 
 		return function applyVelocity() {
 
 			timeStamp = performance.now();
-			deltaTime = ( timeStamp - lastTime ) / 1000.0;
-			lastTime = timeStamp;
-			deltaAngle = _angularVelocity.length();
+			deltaTime = ( timeStamp - _lastVelTime ) / 1000.0;
+			_lastVelTime = timeStamp;
+
+			if( _this.spinAxisConstraint ) {
+
+				normalizedAxis.copy( _this.spinAxisConstraint );
+				deltaAngle = normalizedAxis.dot( _angularVelocity ) ;
+
+			} else {
+
+				normalizedAxis.copy( _angularVelocity );
+				deltaAngle = _angularVelocity.length();
+
+			}
 
 			if ( deltaAngle && deltaTime ) {
 
-				normalizedAxis.copy( _angularVelocity );
 				normalizedAxis.normalize();
-				quat.setFromAxisAngle( normalizedAxis, deltaAngle * deltaTime );
+				quat.setFromAxisAngle( normalizedAxis, deltaAngle * deltaTime * _this.rotateSensativity );
 
 				_this.object.quaternion.normalize();
 				_this.object.quaternion.premultiply(quat);
 
 				// using small-angle approximation cos(x/2) = 1 - x^2 / 8
 
-				if ( 8 * ( 1 - _lastQuaternion.dot( _this.object.quaternion ) ) > _this._EPS) {
+				if ( 8 * ( 1 - _lastQuaternion.dot( _this.object.quaternion ) ) > _EPS) {
 
 					_this.dispatchEvent( changeEvent );
 
@@ -238,38 +263,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		};
 
 	}() );
-
-	this.isHittingObject = ( function () {
-
-		var currentInputDirection = new THREE.Vector3(),
-			objectWorldPos = new THREE.Vector3();
-
-		return function isHittingObject( pointerNDC ) {
-
-			currentInputDirection.set( pointerNDC.x, pointerNDC.y, .5 )
-			currentInputDirection.unproject( _this.camera ) // Put in world space
-			currentInputDirection.sub( _this.camera.position ).normalize() // Move to camera space
-			_ray.direction.copy( currentInputDirection )
-			_ray.origin.copy( _this.camera.position );
-
-			objectWorldPos.setFromMatrixPosition( _this.object.matrixWorld );
-			_trackBallSphere.set( objectWorldPos, _this.trackballRadius);
-
-			if( _ray.intersectSphere( _trackBallSphere, objectWorldPos ) == null ) {
-
-				return false;
-
-			}
-			else {
-
-				return true;
-
-			}
-
-		}
-
-	}() );
-
 
 	this.onWindowResize = ( function () {
 
@@ -302,7 +295,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			vector.set(
 				( ( pageX - _this.screen.width * 0.5 - _this.screen.left ) / ( _this.screen.width * 0.5 ) ),
-				( ( _this.screen.height + 2 * ( _this.screen.top - pageY ) ) / _this.screen.height ) // screen.height intentional =)
+				( ( _this.screen.height + 2 * ( _this.screen.top - pageY ) ) / _this.screen.height )
 			);
 
 			return vector;
@@ -311,36 +304,30 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}() );
 
-	function startPointerSpinning() {
-
-	}
-
 	// listeners
 
 	function onMouseDown( event ) {
 
-		if ( _this.enabled === false || event.button !== 0) return;
+		if ( _this.enabled === false || event.button !== 0 ) return;
 
 		var pointerNDC = getPointerInNdc( event.pageX, event.pageY );
-		if( _this.isHittingObject( pointerNDC ) ) {
 
-			event.preventDefault(); // Prevent the browser from scrolling.
-			event.stopImmediatePropagation(); //Prevent other controls from working.
+		event.preventDefault(); // Prevent the browser from scrolling.
+		event.stopImmediatePropagation(); //Prevent other controls from working.
 
-			// Manually set the focus since calling preventDefault above
-			// prevents the browser from setting it automatically.
-			_this.domElement.focus ? _this.domElement.focus() : window.focus();
+		// Manually set the focus since calling preventDefault above
+		// prevents the browser from setting it automatically.
+		_this.domElement.focus ? _this.domElement.focus() : window.focus();
 
-			_mouseCurr.copy( pointerNDC );
-			_angularVelocity.set( 0, 0, 0 );
-			_isPointerDown = true;
+		_mouseCurr.copy( pointerNDC );
+		_lastMouseEventTime = performance.now();
+		_angularVelocity.set( 0, 0, 0 );
+		_isPointerDown = true;
 
-			document.addEventListener( 'mousemove', onMouseMove, false );
-			document.addEventListener( 'mouseup', onMouseUp, false );
+		document.addEventListener( 'mousemove', onMouseMove, false );
+		document.addEventListener( 'mouseup', onMouseUp, false );
 
-			_this.dispatchEvent( startEvent );
-
-		}
+		_this.dispatchEvent( startEvent );
 
 	}
 
@@ -352,9 +339,18 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_mousePrev.copy( _mouseCurr );
 		_mouseCurr.copy( getPointerInNdc( event.pageX, event.pageY ) );
-		_this.updateAngularVelocity( _mouseCurr, _mousePrev );
+		
+		var currentTime = performance.now();
+		var deltaTime = ( currentTime - _lastMouseEventTime ) / 1000.0;
+		_lastMouseEventTime = currentTime;
 
-		_this.isMouseMovedThisFrame = true;
+		if( deltaTime > 0 ) { // Sometimes not non zero due to timer precision?			
+
+			_this.updateAngularVelocity( _mouseCurr, _mousePrev, deltaTime);
+
+		}
+		
+		_this.isPointerMovedThisFrame = true;
 
 	}
 
@@ -364,7 +360,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		event.preventDefault();
 
-		if(!_this.isMouseMovedThisFrame) {
+		if( !_this.isPointerMovedThisFrame || !_this.enableDamping ) {
 			_angularVelocity.set( 0, 0, 0 );
 		}
 
@@ -376,37 +372,73 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}
 
-	function touchstart( event ) {
+	this.cancelSpin = ( function () {
+		
+		_angularVelocity.set( 0, 0, 0 );
+
+	} );
+
+	this.handleTouchStart = function( event ) { 
+
+		_touchCurr.copy( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) );		
+		_lastTouchEventTime = performance.now();
+		_angularVelocity.set( 0, 0, 0 );
+		_isPointerDown = true;
+		_this.applyVelocity();  //ToDo HAXXX
+
+	}
+
+	function onTouchStart( event ) {
 
 		if ( _this.enabled === false ) return;
 
-		event.preventDefault();
-		event.stopImmediatePropagation();
+		event.preventDefault(); // Prevent the browser from scrolling.
+		event.stopImmediatePropagation(); //Prevent other controls from working.
 
-		_touchCurr.copy( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) );
-		_angularVelocity.set( 0, 0, 0 );
-		_isPointerDown = true;
+		// Manually set the focus since calling preventDefault above
+		// prevents the browser from setting it automatically.
+		_this.domElement.focus ? _this.domElement.focus() : window.focus();
+
+		_this.handleTouchStart( event );
 
 		_this.dispatchEvent( startEvent );
 
 	}
 
-	function touchmove( event ) {
-
-		if ( _this.enabled === false ) return;
+	function onTouchMove( event ) {
+		
+		if ( _this.enabled === false || !_isPointerDown ) return;
 
 		event.preventDefault();
+		event.stopImmediatePropagation(); //Prevent other controls from working.
 
 		_touchPrev.copy( _touchCurr );
 		_touchCurr.copy( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) );
 
-		_this.updateAngularVelocity( _touchCurr, _touchPrev );
+		var currentTime = performance.now();
+		var deltaTime = ( currentTime - _lastTouchEventTime ) / 1000.0;
+		_lastTouchEventTime = currentTime;
+
+		if(deltaTime > 0) { // Sometimes zero due to timer precision?		
+
+			_this.updateAngularVelocity( _touchCurr, _touchPrev, deltaTime);
+
+		}
+
+		_this.isPointerMovedThisFrame = true;
 
 	}
 
-	function touchend( event ) {
+	function onTouchEnd( event ) {
 
-		if ( _this.enabled === false ) return;
+		if( _this.enabled === false || !_isPointerDown ) return;
+
+		if( !_this.isPointerMovedThisFrame ) {
+
+			var deltaTime = ( performance.now() - _lastTouchEventTime ) / 1000.0;
+			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) // To support subtle touches do big dampaning, not zering it
+		
+		}
 
 		_isPointerDown = false;
 
@@ -416,24 +448,24 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.dispose = function () {
 
-		this.domElement.removeEventListener( 'resize', onWindowResize, false );
-		this.domElement.removeEventListener( 'mousedown', onMouseDown, false );
+		_this.domElement.removeEventListener( 'resize', onWindowResize );
 
-		this.domElement.removeEventListener( 'touchstart', touchstart, false );
-		this.domElement.removeEventListener( 'touchend', touchend, false );
-		this.domElement.removeEventListener( 'touchmove', touchmove, false );
+		_this.domElement.removeEventListener( 'mousedown', onMouseDown );
+		document.removeEventListener( 'mousemove', onMouseMove );
+		document.removeEventListener( 'mouseup', onMouseUp );
 
-		this.domElement.removeEventListener( 'mousemove', onMouseMove, false );
-		this.domElement.removeEventListener( 'mouseup', onMouseUp, false );
+		_this.domElement.removeEventListener( 'touchstart', onTouchStart );		
+		_this.domElement.removeEventListener( 'touchmove', onTouchMove );
+		_this.domElement.removeEventListener( 'touchend', onTouchEnd );
 
 	};
 
-	this.domElement.addEventListener( 'resize', onWindowResize, false );
-	this.domElement.addEventListener( 'mousedown', onMouseDown, false );
+	_this.domElement.addEventListener( 'resize', onWindowResize );	
+	_this.domElement.addEventListener( 'mousedown', onMouseDown );
 
-	this.domElement.addEventListener( 'touchstart', touchstart, false );
-	this.domElement.addEventListener( 'touchend', touchend, false );
-	this.domElement.addEventListener( 'touchmove', touchmove, false );
+	_this.domElement.addEventListener( 'touchstart', onTouchStart, {passive: false} );
+	_this.domElement.addEventListener( 'touchmove', onTouchMove, {passive: false} );
+	_this.domElement.addEventListener( 'touchend', onTouchEnd, {passive: false} );
 
 	_this.onWindowResize();
 	// force an update at start
