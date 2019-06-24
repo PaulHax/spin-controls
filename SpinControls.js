@@ -1,4 +1,8 @@
 /**
+ * @author Eberhard Graether / http://egraether.com/
+ * @author Mark Lundin 	/ http://mark-lundin.com
+ * @author Simone Manini / http://daron1337.github.io
+ * @author Luca Antiga 	/ http://lantiga.github.io
  * @author PaulKElliott / http://vizworkshop.com
  */
 
@@ -15,15 +19,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.enabled = true;
 
-	this.screen = { left: 0, top: 0, width: 0, height: 0 };
-
 	this.rotateSensativity = 1.0; // Keep at 1 for direct touching feel
 	this.enableDamping = true;
 	this.dampingFactor = 5; // Increase for more friction
-
-	this.spinAxisConstraint; // Set to THREE.vector3 for limit spinning around specific axis
+	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis
 
 	// Internals
+
+	this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
 	var _angularVelocity = new THREE.Vector3(0, 0, 0),
 		_lastQuaternion = new THREE.Quaternion(),

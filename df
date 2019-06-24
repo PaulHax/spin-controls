@@ -1,0 +1,50 @@
+warning: LF will be replaced by CRLF in SpinControls.js.
+The file will have its original line endings in your working directory.
+warning: LF will be replaced by CRLF in index.html.
+The file will have its original line endings in your working directory.
+[1mdiff --git a/SpinControls.js b/SpinControls.js[m
+[1mindex c28c635..fe4ddea 100644[m
+[1m--- a/SpinControls.js[m
+[1m+++ b/SpinControls.js[m
+[36m@@ -1,4 +1,8 @@[m
+ /**[m
+[32m+[m[32m * @author Eberhard Graether / http://egraether.com/[m
+[32m+[m[32m * @author Mark Lundin 	/ http://mark-lundin.com[m
+[32m+[m[32m * @author Simone Manini / http://daron1337.github.io[m
+[32m+[m[32m * @author Luca Antiga 	/ http://lantiga.github.io[m
+  * @author PaulKElliott / http://vizworkshop.com[m
+  */[m
+ [m
+[36m@@ -15,16 +19,15 @@[m [mvar SpinControls = function ( object, trackBallRadius, camera, domElement ) {[m
+ [m
+ 	this.enabled = true;[m
+ [m
+[31m-	this.screen = { left: 0, top: 0, width: 0, height: 0 };[m
+[31m-[m
+ 	this.rotateSensativity = 1.0; // Keep at 1 for direct touching feel[m
+ 	this.enableDamping = true;[m
+ 	this.dampingFactor = 5; // Increase for more friction[m
+[31m-[m
+[31m-	this.spinAxisConstraint; // Set to THREE.vector3 for limit spinning around specific axis[m
+[32m+[m	[32mthis.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis[m
+ [m
+ 	// Internals[m
+ [m
+[32m+[m	[32mthis.screen = { left: 0, top: 0, width: 0, height: 0 };[m
+[32m+[m
+ 	var _angularVelocity = new THREE.Vector3(0, 0, 0),[m
+ 		_lastQuaternion = new THREE.Quaternion(),[m
+ 		_lastVelTime,[m
+[1mdiff --git a/index.html b/index.html[m
+[1mindex 553a8c6..30f543d 100644[m
+[1m--- a/index.html[m
+[1m+++ b/index.html[m
+[36m@@ -30,7 +30,7 @@[m
+ 	<body>[m
+ [m
+ 		<div id="info">[m
+[31m-			Spin Controls <br /> Left click or touch spheres to spin them as if touching a trackball.  [m
+[32m+[m			[32m<a href="https://github.com/PaulKElliott/spin-controls">Spin Controls</a> <br /> Left click or touch spheres to spin them as if touching a trackball.[m[41m  [m
+ 			<br /> Elsewhere: Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch[m
+ 		</div>[m
+ [m
