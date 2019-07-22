@@ -15,4 +15,7 @@ var mesh = new THREE.Mesh(
 scene.add( mesh );
 
 var spinControl = new SpinControls( mesh, radius, camera, renderer.domElement );  
+
+//Call every frame
+  spinControl.update();
 ```
