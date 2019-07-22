@@ -3,7 +3,7 @@
  * @author Mark Lundin 	/ http://mark-lundin.com
  * @author Simone Manini / http://daron1337.github.io
  * @author Luca Antiga 	/ http://lantiga.github.io
- * @author PaulKElliott / http://vizworkshop.com
+ * @author Paul Elliott / http://vizworkshop.com
  */
 
 var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
@@ -36,7 +36,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_mouseCurr = new THREE.Vector2(),
 		_lastMouseEventTime = 0,
 
-		// Seperate touch variables as might be mouseing and touching at same time on laptop?
+		// Separate touch variables as might be mouseing and touching at same time on laptop?
 		_touchPrev = new THREE.Vector2(),
 		_touchCurr = new THREE.Vector2(),
 		_lastTouchEventTime = 0,
@@ -387,7 +387,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_lastTouchEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
-		_this.applyVelocity();  //ToDo HAXXX
+		_this.applyVelocity();  //ToDo HAXXX Should not be needed here
 
 	}
 

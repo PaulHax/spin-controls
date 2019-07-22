@@ -22,7 +22,7 @@
 				padding: 15px;
 				z-index:100;
 				box-sizing: border-box;
-				pointer-events: none;
+				pointer-events: none;				
 			}
 			
 		</style>
@@ -30,7 +30,7 @@
 	<body>
 
 		<div id="info">
-			<a href="https://github.com/PaulKElliott/spin-controls">Spin Controls</a> <br /> Left click or touch spheres to spin them as if touching a trackball.  
+			Spin Controls<br /> Left click or touch spheres to spin them as if touching a trackball.  
 			<br /> Elsewhere: Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch
 		</div>
 
@@ -39,10 +39,10 @@
 		<script src="CameraSpinControls.js"></script> <!-- After SpinControls -->
 
 		<script>
-			var camera, scene, renderer, smallSpinner, bigSpinner, spinControlBig, spinControlSmall, fidgitSpinners;
+			var camera, scene, renderer, 
+				smallSpinner, bigSpinner, spinControlBig, spinControlSmall, fidgitSpinners, cameraUI;
 			var isTouched;
 			init();
-			render();
       animate(0);
       
 			function init() {
@@ -71,7 +71,6 @@
 				
 				renderer.domElement.addEventListener( 'touchstart', onTouchStart, false );
 				window.addEventListener( 'touchend', onTouchEnd, false ); // get event last, so false on capture
-
 
 				// Spinner 3D graphics
         var radius = 50;
@@ -114,30 +113,30 @@
         spinControlBig = new SpinControls( bigSpinner, radius, camera, renderer.domElement);
         
 				// Camera control UI
-				group = new THREE.Group();
-        group.position.set(0, 0, 0);
+				cameraUI = new THREE.Group();
+        cameraUI.position.set(0, 0, 0);
         var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
 				meshMaterial = new THREE.MeshBasicMaterial( { color: 0xaaaaff, flatShading: true, transparent: true, opacity: 0.2 } );
         lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
-        group.add( new THREE.LineSegments( geometry, lineMaterial ) );
-        group.add( new THREE.Mesh( geometry, meshMaterial ) );
-				scene.add( group );
-				group.visible = false;
-				group.renderOrder = 1; // Don't draw to early, thus obscuring other transparent objects        
+        cameraUI.add( new THREE.LineSegments( geometry, lineMaterial ) );
+        cameraUI.add( new THREE.Mesh( geometry, meshMaterial ) );
+				scene.add( cameraUI );
+				cameraUI.visible = false;
+				cameraUI.renderOrder = 1; // Don't draw to early, thus obscuring other transparent objects        
 				
 				controls = new CameraSpinControls( camera, renderer.domElement );
 
 				function updateCameraSpinUI() {
 
-					group.position.copy( controls.target );
+					cameraUI.position.copy( controls.target );
 					var r = controls.spinControl.trackballRadius;
-					group.scale.set( r, r, r );
+					cameraUI.scale.set( r, r, r );
 
 				}
 
 				controls.addEventListener( 'start', function ( event ) {
 
-					group.visible = true;
+					cameraUI.visible = true;
 					updateCameraSpinUI();
 
 				} );
@@ -150,7 +149,7 @@
 				
 				controls.addEventListener( 'end', function ( event ) {
 
-					group.visible = false;
+					cameraUI.visible = false;
 
 				} );
 
@@ -167,7 +166,7 @@
 
 						pickControlToEnable(	getPointerInNdc( event.pageX, event.pageY ) );
 
-					}	else {
+					}	else { //if not left click then move camera
 
 						controls.enabled = true;
 
@@ -220,11 +219,7 @@
 
 							spinControlBig.enabled = true;
 
-						} else {
-
-							console.log( "Should not get here" );
-
-						}
+						} 
 
 					} else {
 
@@ -235,7 +230,6 @@
 				}
 
 			}() );
-
       
 			function onWindowResize() {
 
