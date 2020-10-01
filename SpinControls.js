@@ -101,9 +101,52 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			deltaMouse = new THREE.Vector2(),
 			polarVel = new THREE.Vector3(),
 
+			p0 = new THREE.Vector3(),
+			q0 = new THREE.Quaternion(),
+
 			angle;
 
 		return function updateAngularVelocity( currentNdc, lastNdc, deltaTime ) {
+
+			console.log(currentNdc);
+
+			const p1 = new THREE.Vector3();
+
+			const uv = currentNdc;
+			const v3 = p1;
+			const t = currentNdc.lengthSq();
+
+			// if (t < 1.0) {
+			// 	p1.set(currentNdc.x, currentNdc.y, Math.sqrt(1.0 - t));
+			// }
+			// else {
+			// 	currentNdc.normalize();
+			// 	p1.set(currentNdc.x, currentNdc.y, 0.0);
+			// }
+
+			if (t < 0.5) {
+				v3.set(uv.x, uv.y, Math.sqrt(1.0 - t));
+			}
+			else {
+				v3.set(uv.x, uv.y, 1.0 / (2.0 * Math.sqrt(t)));
+				v3.normalize();
+			}
+
+			const q = new THREE.Quaternion();
+			// q.setFromUnitVectors(p0, p1);
+			q.set(p1.x, p1.y, p1.z, 0.0).multiply(new THREE.Quaternion(p0.x, p0.y, p0.z, 0.0).conjugate());
+
+			// angle = lastInputPos.angleTo( currentInputPos ) / deltaTime;
+			angle = q.angleTo(q0) / deltaTime;
+			// Change in angular vel
+			_angularVelocity.crossVectors( p0, p1);
+			_angularVelocity.setLength( angle ); // Just set it because we are touching trackball without sliding
+			_this.applyVelocity(); // DO IT NOW!
+			p0.copy(p1)
+			q0.copy(q)
+
+			return;
+
 
 			// Intersect mouse on plane at object with normal pointing to camera
 

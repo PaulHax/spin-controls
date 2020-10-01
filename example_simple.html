@@ -43,7 +43,7 @@
 			var camera, scene, renderer;
 			init();
 			render();
-      animate(0);
+      		animate(0);
       
 			function init() {
 
@@ -53,7 +53,8 @@
 				document.body.appendChild( renderer.domElement );
         
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
-        camera.position.set( 750, 300, 750 );
+        		// camera.position.set( 750, 300, 750 );
+        		camera.position.set( 0, 0, 3 );
 				camera.lookAt( 0, 0, 0 );
 				
 				scene = new THREE.Scene();
@@ -62,17 +63,17 @@
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
-        scene.add( light );
-        
-        var radius = 300;
-        var group = new THREE.Group();
-        group.position.set(100, 0, 0);
-        var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
-        var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
-        var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
-        group.add( new THREE.LineSegments( geometry, lineMaterial ) );
-        group.add( new THREE.Mesh( geometry, meshMaterial ) );
-        scene.add( group );
+				scene.add( light );
+				
+				var radius = 1;
+				var group = new THREE.Group();
+				// group.position.set(100, 0, 0);
+				var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
+				var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
+				var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
+				group.add( new THREE.LineSegments( geometry, lineMaterial ) );
+				group.add( new THREE.Mesh( geometry, meshMaterial ) );
+				scene.add( group );
         
 				spinControl = new SpinControls( group, radius, camera, renderer.domElement );
         
