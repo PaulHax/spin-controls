@@ -43,7 +43,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_isPointerDown = false,
 
-		_EPS = 0.000001,
+		_EPS = 0.000001;
 
 	var changeEvent = { type: 'change' };
 	var startEvent = { type: 'start' };
@@ -205,29 +205,60 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	var getPointerInSphere = ( function () {
 
-		var point = new THREE.Vector3();
+		var point = new THREE.Vector3(),
+		objPos = new THREE.Vector3();
+		objEdgePos = new THREE.Vector3();
+		objToPointer = new THREE.Vector2();
 
 		return function getPointerInSphere( ndc ) {
 
-			var t = ndc.lengthSq();
+			// Move pointer to spinning object space on screen
+			_this.object.updateWorldMatrix(true, false);
+			objPos.setFromMatrixPosition(_this.object.matrixWorld);
+			_this.camera.updateWorldMatrix(true, false);
+			objPos.project( _this.camera ); // position in ndc/screen
+			//object to pointer
+			objToPointer.set(objPos.x, objPos.y);
+			objToPointer.subVectors(ndc, objToPointer);			
+			
+			// scale by object screen size
+			radiusObjWorld = _this.trackballRadius;
+			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld);
+			var offset = new THREE.Vector3().set(radiusObjWorld, 0, 0);
+			objPos.z = 0;
+			offset.applyAxisAngle(new THREE.Vector3().set(0, 0, 1),  offset.angleTo(objPos)); //rotate to point to at screen center
+			offset.applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(_this.camera.matrixWorld))
+			objEdgePos.add(offset)
+			objEdgePos.project( _this.camera ); // position in ndc/screen
+			objEdgePos.z = 0;
+			objPos.z = 0;
+			var objRadiusNDC = objEdgePos.distanceTo(objPos);
+			objToPointer.x = objToPointer.x * (1 / objRadiusNDC)
+			if(_this.camera.aspect) { // Perspective or Orthographic
+				objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) ) / _this.camera.aspect;
+			} 
+			else {
+				objToPointer.y = objToPointer.y * (1 / objRadiusNDC) ;
+			}
 
-			// Todo Move sphere projection to spinning object space.
+			var t = objToPointer.lengthSq();
+			console.log(t)
 
 			// Shoemake pointer mapping
 			if (t < 1.0) {
-				point.set(ndc.x, ndc.y, Math.sqrt(1.0 - t));
+				point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
 			}
 			else {
-				ndc.normalize();
-				point.set(ndc.x, ndc.y, 0.0);
+				objToPointer.normalize();
+				point.set(objToPointer.x, objToPointer.y, 0.0);
 			}
 
 			// Holroyd pointer mapping
 			// if (t < 0.5) {
-			// 	point.set(ndc.x, ndc.y, Math.sqrt(1.0 - t));
+			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
 			// }
 			// else {
-			// 	point.set(ndc.x, ndc.y, 1.0 / (2.0 * Math.sqrt(t)));
+			// 	point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
 			// 	point.normalize();
 			// }
 
