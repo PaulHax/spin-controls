@@ -517,15 +517,11 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function handleTouchStartRotate( event ) {
 
-		//console.log( 'handleTouchStartRotate' );
-
 		rotateStart.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
 
 	}
 
 	function handleTouchStartDollyPan( event ) {
-
-		//console.log( 'handleTouchStartDollyPan' );
 
 		if ( scope.enableZoom ) {
 
@@ -769,8 +765,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 				if ( scope.enableRotate === false ) return;
 
-				//handleTouchStartRotate( event );
-
 				state = STATE.TOUCH_ROTATE;
 
 				break;
@@ -879,7 +873,7 @@ CameraSpinControls = function ( camera, domElement ) {
 	window.addEventListener( 'keydown', onKeyDown, false );
 	
   scope.spinControl = new SpinControls( this.targetObj, 1, this.object, this.domElement );
-	scope.spinControl.rotateSensativity *= -1; // Negate it to pull around sphere
+	scope.spinControl.rotateSensitivity *= -1; // Negate it to pull around sphere
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );

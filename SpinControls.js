@@ -19,7 +19,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.enabled = true;
 
-	this.rotateSensativity = 1.0; // Keep at 1 for direct touching feel
+	this.rotateSensitivity = 1.0; // Keep at 1 for direct touching feel
 	this.enableDamping = true;
 	this.dampingFactor = 5; // Increase for more friction
 	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis
@@ -37,8 +37,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_lastMouseEventTime = 0,
 
 		// Separate touch variables as might be mousing and touching at same time on laptop?
-		_touchPrev = new THREE.Vector2(),
-		_touchCurr = new THREE.Vector2(),
+		_touchPrev = new THREE.Vector3(),
+		_touchCurr = new THREE.Vector3(),
 		_lastTouchEventTime = 0,
 
 		_isPointerDown = false,
@@ -142,7 +142,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			if ( deltaAngle && deltaTime ) {
 
 				normalizedAxis.normalize();
-				quat.setFromAxisAngle( normalizedAxis, deltaAngle * deltaTime * _this.rotateSensativity );
+				quat.setFromAxisAngle( normalizedAxis, deltaAngle * deltaTime * _this.rotateSensitivity );
 
 				_this.object.quaternion.normalize();
 				_this.object.quaternion.premultiply(quat);
@@ -241,6 +241,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			var t = objToPointer.lengthSq();
 
+			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
 			// Shoemake pointer mapping
 			// if (t < 1.0) {
 			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
@@ -284,8 +285,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		// Manually set the focus since calling preventDefault above
 		// prevents the browser from setting it automatically.
 		_this.domElement.focus ? _this.domElement.focus() : window.focus();
-
-		// var pointerNDC = getPointerInNdc( event.pageX, event.pageY );
 
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
 		_lastMouseEventTime = performance.now();
@@ -346,13 +345,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	} );
 
-	this.handleTouchStart = function( event ) { 
+	// Function broken out for CameraSpinControls to use
+	this.handleTouchStart = function( event ) {
 
-		_touchCurr.copy( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) );		
+		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
 		_lastTouchEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
-		_this.applyVelocity();  //ToDo HAXXX Should not be needed here
+		_this.applyVelocity();  //Todo Should not be needed here
 
 	}
 
@@ -361,7 +361,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		if ( _this.enabled === false ) return;
 
 		event.preventDefault(); // Prevent the browser from scrolling.
-		event.stopImmediatePropagation(); //Prevent other controls from working.
+		event.stopImmediatePropagation(); // Prevent other controls from working.
 
 		// Manually set the focus since calling preventDefault above
 		// prevents the browser from setting it automatically.
@@ -378,16 +378,16 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		if ( _this.enabled === false || !_isPointerDown ) return;
 
 		event.preventDefault();
-		event.stopImmediatePropagation(); //Prevent other controls from working.
+		event.stopImmediatePropagation(); // Prevent other controls from working.
 
 		_touchPrev.copy( _touchCurr );
-		_touchCurr.copy( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) );
+		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
 
 		var currentTime = performance.now();
 		var deltaTime = ( currentTime - _lastTouchEventTime ) / 1000.0;
 		_lastTouchEventTime = currentTime;
 
-		if(deltaTime > 0) { // Sometimes zero due to timer precision?		
+		if(deltaTime > 0) { // Sometimes zero due to timer precision?
 
 			_this.updateAngularVelocity( _touchCurr, _touchPrev, deltaTime);
 
@@ -404,7 +404,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		if( !_this.isPointerMovedThisFrame ) {
 
 			var deltaTime = ( performance.now() - _lastTouchEventTime ) / 1000.0;
-			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) // To support subtle touches do big dampaning, not zering it
+			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) // To support subtle touches do big dampening, not zeroing it
 		
 		}
 
