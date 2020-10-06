@@ -206,8 +206,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	var getPointerInSphere = ( function () {
 
 		var point = new THREE.Vector3(),
-		objPos = new THREE.Vector3();
-		objEdgePos = new THREE.Vector3();
+		objPos = new THREE.Vector3(),
+		objEdgePos = new THREE.Vector3(),
 		objToPointer = new THREE.Vector2();
 
 		return function getPointerInSphere( ndc ) {
@@ -221,7 +221,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objToPointer.set(objPos.x, objPos.y);
 			objToPointer.subVectors(ndc, objToPointer);			
 			
-			// scale by object screen size
+			// Scale by object screen size
 			radiusObjWorld = _this.trackballRadius;
 			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld);
 			var offset = new THREE.Vector3().set(radiusObjWorld, 0, 0);
@@ -234,40 +234,36 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objPos.z = 0;
 			var objRadiusNDC = objEdgePos.distanceTo(objPos);
 			objToPointer.x = objToPointer.x * (1 / objRadiusNDC)
-			if(_this.camera.aspect) { // Perspective or Orthographic
-				objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) ) / _this.camera.aspect;
-			} 
-			else {
-				objToPointer.y = objToPointer.y * (1 / objRadiusNDC) ;
+			objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) )
+			if(_this.camera.aspect) { // if Perspective camera
+				objToPointer.y /= _this.camera.aspect;
 			}
 
 			var t = objToPointer.lengthSq();
-			console.log(t)
 
 			// Shoemake pointer mapping
-			if (t < 1.0) {
-				point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
-			}
-			else {
-				objToPointer.normalize();
-				point.set(objToPointer.x, objToPointer.y, 0.0);
-			}
-
-			// Holroyd pointer mapping
-			// if (t < 0.5) {
+			// if (t < 1.0) {
 			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
 			// }
 			// else {
-			// 	point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
-			// 	point.normalize();
+			// 	objToPointer.normalize();
+			// 	point.set(objToPointer.x, objToPointer.y, 0.0);
 			// }
 
-			// Azimuthal equidistant
-			// t = (Math.PI / 2.0) * ndc.length();
-			// var v3 = ndc.clone();
+			// Holroyd pointer mapping
+			if (t < 0.5) {
+				point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+			}
+			else {
+				point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
+				point.normalize();
+			}
+
+			// Azimuthal equidistant pointer mapping
+			// t = (Math.PI / 2.0) * objToPointer.length();
 			// var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
-			// v3.multiplyScalar((Math.PI / 2.0) * sined);
-			// point.set(v3.x, v3.y, Math.cos(t));
+			// objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
+			// point.set(objToPointer.x, objToPointer.y, Math.cos(t));
 
 			return point;
 
