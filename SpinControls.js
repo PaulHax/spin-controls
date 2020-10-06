@@ -87,7 +87,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		var q0 = new THREE.Quaternion(),
 			q1 = new THREE.Quaternion(),
 			q0Conj = new THREE.Quaternion(),
-
 			angleDelta;
 
 		return function updateAngularVelocity( p1, p0, timeDelta ) {
@@ -208,7 +207,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		var point = new THREE.Vector3(),
 		objPos = new THREE.Vector3(),
 		objEdgePos = new THREE.Vector3(),
-		objToPointer = new THREE.Vector2();
+		objToPointer = new THREE.Vector2(),
+		cameraRot = new THREE.Quaternion();
 
 		return function getPointerInSphere( ndc ) {
 
@@ -221,12 +221,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objToPointer.set(objPos.x, objPos.y);
 			objToPointer.subVectors(ndc, objToPointer);			
 			
-			// Scale by object screen size
+			// Scale by object screen size.  Could simplify if Orthographic camera.
 			radiusObjWorld = _this.trackballRadius;
 			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld);
 			var offset = new THREE.Vector3().set(radiusObjWorld, 0, 0);
 			objPos.z = 0;
-			offset.applyAxisAngle(new THREE.Vector3().set(0, 0, 1),  offset.angleTo(objPos)); //rotate to point to at screen center
+			offset.applyAxisAngle(new THREE.Vector3().set(0, 0, 1),  offset.angleTo(objPos)); // rotate to point to at screen center
 			offset.applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(_this.camera.matrixWorld))
 			objEdgePos.add(offset)
 			objEdgePos.project( _this.camera ); // position in ndc/screen
@@ -235,36 +235,38 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			var objRadiusNDC = objEdgePos.distanceTo(objPos);
 			objToPointer.x = objToPointer.x * (1 / objRadiusNDC)
 			objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) )
-			if(_this.camera.aspect) { // if Perspective camera
+			if(_this.camera.aspect) { // if Perspective camera.  
 				objToPointer.y /= _this.camera.aspect;
 			}
 
-			var t = objToPointer.lengthSq();
 
 			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
+			var t = objToPointer.lengthSq();
 			// Shoemake pointer mapping
-			// if (t < 1.0) {
-			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
-			// }
-			// else {
-			// 	objToPointer.normalize();
-			// 	point.set(objToPointer.x, objToPointer.y, 0.0);
-			// }
-
-			// Holroyd pointer mapping
-			if (t < 0.5) {
+			if (t < 1.0) {
 				point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
 			}
 			else {
-				point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
-				point.normalize();
+				objToPointer.normalize();
+				point.set(objToPointer.x, objToPointer.y, 0.0);
 			}
+
+			// Holroyd pointer mapping
+			// if (t < 0.5) {
+			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+			// }
+			// else {
+			// 	point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
+			// 	point.normalize();
+			// }
 
 			// Azimuthal equidistant pointer mapping
 			// t = (Math.PI / 2.0) * objToPointer.length();
 			// var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
 			// objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
 			// point.set(objToPointer.x, objToPointer.y, Math.cos(t));
+
+			point.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld)); // Rotate from z axis to camera direction
 
 			return point;
 
