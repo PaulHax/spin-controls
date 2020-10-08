@@ -26,8 +26,8 @@ CameraSpinControls = function ( camera, domElement ) {
 	// "target" sets the location of focus, where the object orbits around
 	this.targetObj = new THREE.Object3D();
 	this.targetObj.lookAt(camera.position)
-  this.target = this.targetObj.position;
-  this.objectOffsetDistance = this.target.distanceTo( camera.position );
+	this.target = this.targetObj.position;
+	this.objectOffsetDistance = this.target.distanceTo( camera.position );
 
 	// How far you can dolly in and out ( PerspectiveCamera only )
 	this.minDistance = 0;
@@ -104,28 +104,28 @@ CameraSpinControls = function ( camera, domElement ) {
 	this.update = function () {
 
 		var lastPosition = new THREE.Vector3();
-    var lastQuaternion = new THREE.Quaternion();
-    var objectOffset = new THREE.Matrix4();
+		var lastQuaternion = new THREE.Quaternion();
+		var objectOffset = new THREE.Matrix4();
 
 		return function update() {
 
-      scope.spinControl.update();
+      		scope.spinControl.update();
 
 			scope.objectOffsetDistance *= scale;
 
 			// restrict radius to be between desired limits
-      scope.objectOffsetDistance = Math.max( scope.minDistance, Math.min( scope.maxDistance, scope.objectOffsetDistance ) );
+      		scope.objectOffsetDistance = Math.max( scope.minDistance, Math.min( scope.maxDistance, scope.objectOffsetDistance ) );
       
-      scope.ajustTrackballRadius();
+			scope.ajustTrackballRadius();
 
 			// move target to panned location
 			scope.target.add( panOffset );
       
-      scope.targetObj.updateMatrixWorld();
-      scope.object.matrix.copy( scope.targetObj.matrixWorld );
-      objectOffset.makeTranslation( 0, 0, scope.objectOffsetDistance );
-      scope.object.matrix.multiply( objectOffset );
-      scope.object.matrix.decompose( scope.object.position, scope.object.quaternion, scope.object.scale );
+			scope.targetObj.updateMatrixWorld();
+			scope.object.matrix.copy( scope.targetObj.matrixWorld );
+			objectOffset.makeTranslation( 0, 0, scope.objectOffsetDistance );
+			scope.object.matrix.multiply( objectOffset );
+			scope.object.matrix.decompose( scope.object.position, scope.object.quaternion, scope.object.scale );
 
 			if ( scope.enableDamping === true ) {
 
@@ -139,12 +139,12 @@ CameraSpinControls = function ( camera, domElement ) {
 
 			scale = 1;
 
-			// update condition is:
+			// rotation angle update condition is:
 			// min(camera displacement, camera rotation in radians)^2 > EPS
 			// using small-angle approximation cos(x/2) = 1 - x^2 / 8
-			if ( zoomChanged ||
-				lastPosition.distanceToSquared( scope.object.position ) > EPS ||
-				8 * ( 1 - lastQuaternion.dot( scope.object.quaternion ) ) > EPS ) {
+			if ( zoomChanged 
+				|| lastPosition.distanceToSquared( scope.object.position ) > EPS 
+				|| 8 * ( 1 - lastQuaternion.dot( scope.object.quaternion ) ) > EPS ) {
 
 				scope.dispatchEvent( changeEvent );
 
@@ -872,27 +872,27 @@ CameraSpinControls = function ( camera, domElement ) {
 	
 	window.addEventListener( 'keydown', onKeyDown, false );
 	
-  scope.spinControl = new SpinControls( this.targetObj, 1, this.object, this.domElement );
+  	scope.spinControl = new SpinControls( this.targetObj, 1, this.object, this.domElement );
 	scope.spinControl.rotateSensitivity *= -1; // Negate it to pull around sphere
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );
 	
-  scope.spinControl.addEventListener( 'change', function ( event ) {
+  	scope.spinControl.addEventListener( 'change', function ( event ) {
 
-    scope.dispatchEvent( changeEvent );
+    	scope.dispatchEvent( changeEvent );
 
-  } );
+  	} );
   
-  scope.spinControl.addEventListener( 'start', function ( event ) {
+	scope.spinControl.addEventListener( 'start', function ( event ) {
 
-    scope.dispatchEvent( startEvent );
+		scope.dispatchEvent( startEvent );
 
-  } );
+	} );
   
-  scope.spinControl.addEventListener( 'end', function ( event ) {
+	scope.spinControl.addEventListener( 'end', function ( event ) {
 
-			scope.dispatchEvent( endEvent );
+		scope.dispatchEvent( endEvent );
 
 	} );
 

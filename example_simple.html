@@ -57,6 +57,25 @@
 				camera.position.set( 750, 300, 750 );
 				// camera.position.set( 0, 0, 3 );
 				camera.lookAt( .5, .4, 0 );
+
+				var isL = false
+				document.addEventListener("keydown", event => {
+					if (event.isComposing || event.keyCode === 229) {
+						return;
+					}
+					console.log(event.code)
+					if(event.code == 'Space') {						
+						isL = !isL;
+						if(isL) {
+							camera.position.set( 0, 0, 750 );
+							camera.lookAt(  0,  0, 0 );
+						}
+						else {
+							camera.position.set( 750, 300, 750 );
+							camera.lookAt( 100, 0, 0 );
+						}
+					}
+				});
 				
 				scene = new THREE.Scene();
 
@@ -87,7 +106,7 @@
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();        
 				renderer.setSize( window.innerWidth, window.innerHeight );
-        spinControl.onWindowResize();
+        		spinControl.onWindowResize();
 				render();
 
 			}
@@ -95,7 +114,7 @@
       function animate(timeStamp) {
 
 				requestAnimationFrame( animate );			
-        spinControl.update();
+        		spinControl.update();
 				render();
 				
 			}

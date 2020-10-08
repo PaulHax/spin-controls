@@ -221,7 +221,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objToPointer.set(objPos.x, objPos.y);
 			objToPointer.subVectors(ndc, objToPointer);			
 			
-			// Scale by object screen size.  Could simplify if Orthographic camera.
+			// Scale by object screen size.  TODO simplify if Orthographic camera.
 			radiusObjWorld = _this.trackballRadius;
 			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld);
 			var offset = new THREE.Vector3().set(radiusObjWorld, 0, 0);
@@ -238,7 +238,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			if(_this.camera.aspect) { // if Perspective camera.  
 				objToPointer.y /= _this.camera.aspect;
 			}
-
 
 			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
 			var t = objToPointer.lengthSq();
