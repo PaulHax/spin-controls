@@ -90,21 +90,21 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			angleDelta;
 
 		return function updateAngularVelocity( p1, p0, timeDelta ) {
-			
+
 			// q0Conj.set(p0.x, p0.y, p0.z, 0.0)
 			// q0Conj.normalize();
 			// q0Conj.conjugate();
 			// q1.set(p1.x, p1.y, p1.z, 0.0).multiply(q0Conj); // path independent (Shoemake)
 			// timeDelta *= 2.0; // divide angleDelta by 2 to keep sphere under pointer.  Might break algo properties.  Todo: Investigate.
-
+			
 			q1.setFromUnitVectors(p0, p1); // path dependent
-
+			
 			q0.set(p0.x, p0.y, p0.z, 1.0);
-			angleDelta = q1.angleTo(q0) / timeDelta;			
+			angleSpeed = q1.angleTo(q0) / timeDelta;			
 
 			// Just set velocity because we are touching trackball without sliding
 			_angularVelocity.crossVectors( p0, p1);
-			_angularVelocity.setLength( angleDelta );
+			_angularVelocity.setLength( angleSpeed );
 			_this.applyVelocity(); // DO IT NOW!
 
 		};
@@ -205,10 +205,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	var getPointerInSphere = ( function () {
 
 		var point = new THREE.Vector3(),
-		objPos = new THREE.Vector3(),
-		objEdgePos = new THREE.Vector3(),
-		objToPointer = new THREE.Vector2(),
-		cameraRot = new THREE.Quaternion();
+			objPos = new THREE.Vector3(),
+			objEdgePos = new THREE.Vector3(),
+			objToPointer = new THREE.Vector2(),
+			cameraRot = new THREE.Quaternion(),
+			q = new THREE.Quaternion(),
+			v = new THREE.Vector3();
 
 		return function getPointerInSphere( ndc ) {
 
@@ -219,23 +221,26 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objPos.project( _this.camera ); // position in ndc/screen
 			//object to pointer
 			objToPointer.set(objPos.x, objPos.y);
-			objToPointer.subVectors(ndc, objToPointer);			
-			
+			objToPointer.subVectors(ndc, objToPointer);
+
 			// Scale by object screen size.  TODO simplify if Orthographic camera.
-			radiusObjWorld = _this.trackballRadius;
-			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld);
-			var offset = new THREE.Vector3().set(radiusObjWorld, 0, 0);
-			objPos.z = 0;
-			offset.applyAxisAngle(new THREE.Vector3().set(0, 0, 1),  offset.angleTo(objPos)); // rotate to point to at screen center
-			offset.applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(_this.camera.matrixWorld))
-			objEdgePos.add(offset)
+			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld); // objEdgePos is aspirational on this line
+			var offset = new THREE.Vector3().set(_this.trackballRadius, 0, 0);
+			// rotate to point at screen center. TODO Investigate
+			// objPos.z = 0;
+			// if(objPos.lengthSq() > 0) {
+			// 	offset.applyAxisAngle(v.set(0, 0, -1),  offset.angleTo(objPos)); 
+			// }
+			offset.applyQuaternion(q.setFromRotationMatrix(_this.camera.matrixWorld));
+			objEdgePos.add(offset);
 			objEdgePos.project( _this.camera ); // position in ndc/screen
 			objEdgePos.z = 0;
 			objPos.z = 0;
 			var objRadiusNDC = objEdgePos.distanceTo(objPos);
-			objToPointer.x = objToPointer.x * (1 / objRadiusNDC)
-			objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) )
-			if(_this.camera.aspect) { // if Perspective camera.  
+
+			objToPointer.x = objToPointer.x * (1 / objRadiusNDC);
+			objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) );
+			if(_this.camera.aspect) { // Perspective camera probably
 				objToPointer.y /= _this.camera.aspect;
 			}
 
@@ -286,7 +291,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		// Manually set the focus since calling preventDefault above
 		// prevents the browser from setting it automatically.
 		_this.domElement.focus ? _this.domElement.focus() : window.focus();
-
+		
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
 		_lastMouseEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
@@ -312,7 +317,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		var deltaTime = ( currentTime - _lastMouseEventTime ) / 1000.0;
 		_lastMouseEventTime = currentTime;
 
-		if( deltaTime > 0 ) { // Sometimes not non zero due to timer precision?			
+		if( deltaTime > 0 ) { // Sometimes zero due to timer precision?			
 
 			_this.updateAngularVelocity( _mouseCurr, _mousePrev, deltaTime);
 
@@ -340,13 +345,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}
 
+	// For camera controls to stop spin with 2 finger pinch
 	this.cancelSpin = ( function () {
 		
 		_angularVelocity.set( 0, 0, 0 );
 
 	} );
 
-	// Function broken out for CameraSpinControls to use
+	// Function broken out for CameraSpinControls to use in touch end
 	this.handleTouchStart = function( event ) {
 
 		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
@@ -402,10 +408,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		if( _this.enabled === false || !_isPointerDown ) return;
 
-		if( !_this.isPointerMovedThisFrame ) {
-
+		if( !_this.isPointerMovedThisFrame ) { // TODO maybe set to zero if no dampening/momentum?
+			
+			// To support subtle touches do big dampening, not zeroing it
 			var deltaTime = ( performance.now() - _lastTouchEventTime ) / 1000.0;
-			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) // To support subtle touches do big dampening, not zeroing it
+			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) 
 		
 		}
 

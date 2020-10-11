@@ -33,7 +33,7 @@
       Camera Spin Controls<br />Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch
 		</div>
 
-    <script src="three.min.js"></script>
+    	<script src="three.min.js"></script>
 		<script src="SpinControls.js"></script>
 		<script src="CameraSpinControls.js"></script>
 
@@ -53,6 +53,7 @@
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
 				camera.position.set( 750, 300, 750 );
 				camera.lookAt( 0, 0, 0 );
+
 				scene = new THREE.Scene();
 				scene.add( new THREE.GridHelper( 1000, 6 ) );
 
@@ -74,9 +75,19 @@
 				trackballWidget.add( new THREE.Mesh( geometry, meshMaterial ) );
 				scene.add( trackballWidget );
 				trackballWidget.visible = false;
-        
+				
+				var camera2 = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera2.position.set( 10, 0, 0 );
+				camera2.lookAt( 0, 0, 0 );
+				scene.add( camera2 );
+				var geometry = new THREE.TorusKnotBufferGeometry( 10, 2, 100, 16 );
+				var material = new THREE.MeshNormalMaterial( );
+				var torusKnot = new THREE.Mesh( geometry, material );
+				camera2.add( torusKnot );
+
+				// cameraSpinControl = new CameraSpinControls( camera2, renderer.domElement );
 				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-				cameraSpinControl.objectOffsetDistance = 900;
+				cameraSpinControl.objectOffsetDistance = 200;
 
 				function updateCameraSpinUI() {
 
@@ -122,7 +133,7 @@
       
 			function animate(timeStamp) {
 
-				requestAnimationFrame( animate );			
+				requestAnimationFrame( animate );
         		cameraSpinControl.update();
 				render();
 				

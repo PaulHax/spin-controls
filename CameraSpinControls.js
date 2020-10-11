@@ -16,13 +16,12 @@
 
 CameraSpinControls = function ( camera, domElement ) {
 
-	this.object = camera;
-
 	this.domElement = ( domElement !== undefined ) ? domElement : document;
 
 	// Set to false to disable this control
 	this.enabled = true;
 
+	this.object = camera;
 	// "target" sets the location of focus, where the object orbits around
 	this.targetObj = new THREE.Object3D();
 	this.targetObj.lookAt(camera.position)
@@ -109,8 +108,8 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		return function update() {
 
-      		scope.spinControl.update();
-
+			scope.spinControl.update();
+			
 			scope.objectOffsetDistance *= scale;
 
 			// restrict radius to be between desired limits
@@ -120,8 +119,8 @@ CameraSpinControls = function ( camera, domElement ) {
 
 			// move target to panned location
 			scope.target.add( panOffset );
-      
-			scope.targetObj.updateMatrixWorld();
+
+			scope.targetObj.updateWorldMatrix(true, false);
 			scope.object.matrix.copy( scope.targetObj.matrixWorld );
 			objectOffset.makeTranslation( 0, 0, scope.objectOffsetDistance );
 			scope.object.matrix.multiply( objectOffset );
@@ -175,7 +174,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
     } else {
 
-      console.warn( 'WARNING: OrbitControls.js encountered an unknown camera type' );
+      console.warn( 'WARNING: CameraSpinControls.js encountered an unknown camera type' );
 
     }
   }
@@ -383,15 +382,11 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function handleMouseDownPan( event ) {
 
-		//console.log( 'handleMouseDownPan' );
-
 		panStart.set( event.clientX, event.clientY );
 
 	}
 
 	function handleMouseMoveRotate( event ) {
-
-    //console.log( 'handleMouseMoveRotate' );
 
 		rotateEnd.set( event.clientX, event.clientY );
 
@@ -691,7 +686,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 				if ( scope.enableRotate === false ) return;
 
-				//handleMouseMoveRotate( event );
+				// handleMouseMoveRotate( event );
 
 				break;
 
@@ -872,8 +867,9 @@ CameraSpinControls = function ( camera, domElement ) {
 	
 	window.addEventListener( 'keydown', onKeyDown, false );
 	
-  	scope.spinControl = new SpinControls( this.targetObj, 1, this.object, this.domElement );
-	scope.spinControl.rotateSensitivity *= -1; // Negate it to pull around sphere
+	scope.spinControl = new SpinControls( this.targetObj, 1, camera, this.domElement );
+	// FIXME Camera movement moves point on sphere bug.
+	scope.spinControl.rotateSensitivity *= -1; //Negated it to pull camera around sphere as if sphere is fixed.
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );
