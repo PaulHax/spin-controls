@@ -24,6 +24,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.dampingFactor = 5; // Increase for more friction
 	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis
 
+	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
+	// Holyroyd smooths between sphere and hyperbola to avoid jump at sphere edge.
+	// Azimuthal is something else from Yasuhiro Fujii.
+	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 0, HOLROYD: 1, AZIMUTHAL: 2};
+	this.rotateAlgorithm = this.POINTER_SPHERE_MAPPING.HOLROYD;
+
 	// Internals
 
 	this.screen = { left: 0, top: 0, width: 0, height: 0 };
@@ -34,14 +40,18 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_mousePrev = new THREE.Vector3(),
 		_mouseCurr = new THREE.Vector3(),
+		_mouseCurrNDC = new THREE.Vector2(),
 		_lastMouseEventTime = 0,
 
 		// Separate touch variables as might be mousing and touching at same time on laptop?
 		_touchPrev = new THREE.Vector3(),
 		_touchCurr = new THREE.Vector3(),
+		_touchCurrNDC = new THREE.Vector2(),
 		_lastTouchEventTime = 0,
 
 		_isPointerDown = false,
+		_isMouseDown = false,
+		_isTouchDown = false,
 
 		_EPS = 0.000001;
 
@@ -91,13 +101,15 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		return function updateAngularVelocity( p1, p0, timeDelta ) {
 
+			// path independent rotation from Shoemake
 			// q0Conj.set(p0.x, p0.y, p0.z, 0.0)
 			// q0Conj.normalize();
 			// q0Conj.conjugate();
-			// q1.set(p1.x, p1.y, p1.z, 0.0).multiply(q0Conj); // path independent (Shoemake)
-			// timeDelta *= 2.0; // divide angleDelta by 2 to keep sphere under pointer.  Might break algo properties.  Todo: Investigate.
+			// q1.set(p1.x, p1.y, p1.z, 0.0).multiply(q0Conj); 
+			// timeDelta *= 2.0; // divide angleDelta by 2 to keep sphere under pointer.  Might break algorithm properties, TODO: perhaps investigate.
 			
-			q1.setFromUnitVectors(p0, p1); // path dependent
+			// path dependent
+			q1.setFromUnitVectors(p0, p1); 
 			
 			q0.set(p0.x, p0.y, p0.z, 1.0);
 			angleSpeed = q1.angleTo(q0) / timeDelta;			
@@ -185,6 +197,19 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	} );
 
+
+	this.resetInputAfterCameraMovement = ( function () {
+		
+		if( _isMouseDown ) {
+			_mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
+		}
+
+		if( _isTouchDown ) {
+			_touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
+		}
+		
+	} );
+
 	var getPointerInNdc = ( function () {
 
 		var vector = new THREE.Vector2();
@@ -208,9 +233,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objPos = new THREE.Vector3(),
 			objEdgePos = new THREE.Vector3(),
 			objToPointer = new THREE.Vector2(),
-			cameraRot = new THREE.Quaternion(),
-			q = new THREE.Quaternion(),
-			v = new THREE.Vector3();
+			cameraRot = new THREE.Quaternion();
 
 		return function getPointerInSphere( ndc ) {
 
@@ -229,9 +252,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			// rotate to point at screen center. TODO Investigate
 			// objPos.z = 0;
 			// if(objPos.lengthSq() > 0) {
-			// 	offset.applyAxisAngle(v.set(0, 0, -1),  offset.angleTo(objPos)); 
+			// 	offset.applyAxisAngle(point.set(0, 0, -1),  offset.angleTo(objPos)); 
 			// }
-			offset.applyQuaternion(q.setFromRotationMatrix(_this.camera.matrixWorld));
+			offset.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld));
 			objEdgePos.add(offset);
 			objEdgePos.project( _this.camera ); // position in ndc/screen
 			objEdgePos.z = 0;
@@ -239,38 +262,42 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			var objRadiusNDC = objEdgePos.distanceTo(objPos);
 
 			objToPointer.x = objToPointer.x * (1 / objRadiusNDC);
-			objToPointer.y = (objToPointer.y * (1 / objRadiusNDC) );
+			objToPointer.y = objToPointer.y * (1 / objRadiusNDC);
 			if(_this.camera.aspect) { // Perspective camera probably
 				objToPointer.y /= _this.camera.aspect;
 			}
 
 			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
-			var t = objToPointer.lengthSq();
-			// Shoemake pointer mapping
-			if (t < 1.0) {
-				point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+			if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+				var t = objToPointer.lengthSq();
+				if (t < 0.5) {
+					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+				}
+				else {
+					point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
+					point.normalize();
+				}
 			}
-			else {
-				objToPointer.normalize();
-				point.set(objToPointer.x, objToPointer.y, 0.0);
+			else if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
+				//FIXME CameraSpinControls jumps when moving off/on sphere with Shoemake mapping
+				var t = objToPointer.lengthSq();
+				if (t < 1.0) {
+					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+				}
+				else {
+					objToPointer.normalize();
+					point.set(objToPointer.x, objToPointer.y, 0.0);
+				}
 			}
+			else if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+				var t = (Math.PI / 2.0) * objToPointer.length();
+				var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
+				objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
+				point.set(objToPointer.x, objToPointer.y, Math.cos(t));
+			}
+			
 
-			// Holroyd pointer mapping
-			// if (t < 0.5) {
-			// 	point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
-			// }
-			// else {
-			// 	point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
-			// 	point.normalize();
-			// }
-
-			// Azimuthal equidistant pointer mapping
-			// t = (Math.PI / 2.0) * objToPointer.length();
-			// var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
-			// objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
-			// point.set(objToPointer.x, objToPointer.y, Math.cos(t));
-
-			point.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld)); // Rotate from z axis to camera direction
+			point.applyQuaternion(cameraRot); // Rotate from z axis to camera direction
 
 			return point;
 
@@ -293,9 +320,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_this.domElement.focus ? _this.domElement.focus() : window.focus();
 		
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
+		_mouseCurrNDC.set( event.pageX, event.pageY )
 		_lastMouseEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
+		_isMouseDown = true;
 
 		document.addEventListener( 'mousemove', onMouseMove, false );
 		document.addEventListener( 'mouseup', onMouseUp, false );
@@ -312,7 +341,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_mousePrev.copy( _mouseCurr );
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
-		
+		_mouseCurrNDC.set( event.pageX, event.pageY )
+
 		var currentTime = performance.now();
 		var deltaTime = ( currentTime - _lastMouseEventTime ) / 1000.0;
 		_lastMouseEventTime = currentTime;
@@ -338,6 +368,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		}
 
 		_isPointerDown = false;
+		_isMouseDown = false;
 
 		document.removeEventListener( 'mousemove', onMouseMove );
 		document.removeEventListener( 'mouseup', onMouseUp );
@@ -356,9 +387,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.handleTouchStart = function( event ) {
 
 		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
+		_touchCurrNDC.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY )
 		_lastTouchEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
+		_isTouchDown = true;
 		_this.applyVelocity();  //Todo Should not be needed here
 
 	}
@@ -389,6 +422,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_touchPrev.copy( _touchCurr );
 		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
+		_touchCurrNDC.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY )
 
 		var currentTime = performance.now();
 		var deltaTime = ( currentTime - _lastTouchEventTime ) / 1000.0;
@@ -417,6 +451,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		}
 
 		_isPointerDown = false;
+		_isTouchDown = false;
 
 		_this.dispatchEvent( endEvent );
 

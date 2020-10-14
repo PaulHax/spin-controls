@@ -41,7 +41,7 @@
 			var camera, scene, renderer, trackballWidget, meshMaterial, lineMaterial;
 			init();
 			render();
-      		animate(0);
+      		animate( 0 );
       
 			function init() {
 
@@ -62,12 +62,12 @@
 				scene.add( light );
 				
 				var geometry = new THREE.TorusKnotBufferGeometry( 100, 20, 100, 16 );
-				var material = new THREE.MeshNormalMaterial( );
+				var material = new THREE.MeshNormalMaterial();
 				var torusKnot = new THREE.Mesh( geometry, material );
 				scene.add( torusKnot );
         
 				trackballWidget = new THREE.Group();
-				trackballWidget.position.set(0, 0, 0);
+				trackballWidget.position.set( 0, 0, 0 );
 				var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
 				meshMaterial = new THREE.MeshBasicMaterial( { color: 0xaaaaff, flatShading: true, transparent: true, opacity: 0.2 } );
 				lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
@@ -81,7 +81,7 @@
 				camera2.lookAt( 0, 0, 0 );
 				scene.add( camera2 );
 				var geometry = new THREE.TorusKnotBufferGeometry( 10, 2, 100, 16 );
-				var material = new THREE.MeshNormalMaterial( );
+				var material = new THREE.MeshNormalMaterial();
 				var torusKnot = new THREE.Mesh( geometry, material );
 				camera2.add( torusKnot );
 

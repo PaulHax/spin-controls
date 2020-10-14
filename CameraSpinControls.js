@@ -150,6 +150,8 @@ CameraSpinControls = function ( camera, domElement ) {
 				lastPosition.copy( scope.object.position );
 				lastQuaternion.copy( scope.object.quaternion );
 				zoomChanged = false;
+				
+				scope.spinControl.resetInputAfterCameraMovement(); // Don't let camera movement to ratchet mouse movement over sphere across frames
 
 				return true;
 
@@ -386,24 +388,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	}
 
-	function handleMouseMoveRotate( event ) {
-
-		rotateEnd.set( event.clientX, event.clientY );
-
-		rotateDelta.subVectors( rotateEnd, rotateStart ).multiplyScalar( scope.rotateSpeed );
-
-		var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
-
-		rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight ); // yes, height
-
-		rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight );
-
-		rotateStart.copy( rotateEnd );
-
-		scope.update();
-
-	}
-
 	function handleMouseMoveDolly( event ) {
 
 		//console.log( 'handleMouseMoveDolly' );
@@ -510,12 +494,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	}
 
-	function handleTouchStartRotate( event ) {
-
-		rotateStart.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
-
-	}
-
 	function handleTouchStartDollyPan( event ) {
 
 		if ( scope.enableZoom ) {
@@ -540,29 +518,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	}
 
-	function handleTouchMoveRotate( event ) {
-
-		//console.log( 'handleTouchMoveRotate' );
-
-		rotateEnd.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
-
-		rotateDelta.subVectors( rotateEnd, rotateStart ).multiplyScalar( scope.rotateSpeed );
-
-		var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
-
-		rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight ); // yes, height
-
-		rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight );
-
-		rotateStart.copy( rotateEnd );
-
-		scope.update();
-
-	}
-
 	function handleTouchMoveDollyPan( event ) {
-
-		//console.log( 'handleTouchMoveDollyPan' );
 
 		event.stopImmediatePropagation(); //Prevent other controls from working.
 
@@ -869,7 +825,8 @@ CameraSpinControls = function ( camera, domElement ) {
 	
 	scope.spinControl = new SpinControls( this.targetObj, 1, camera, this.domElement );
 	// FIXME Camera movement moves point on sphere bug.
-	scope.spinControl.rotateSensitivity *= -1; //Negated it to pull camera around sphere as if sphere is fixed.
+	scope.spinControl.rotateSensitivity *= -1; // Negated it to pull camera around sphere as if sphere is fixed.
+	// scope.spinControl.rotateAlgorithm = scope.spinControl.POINTER_SPHERE_MAPPING.HOLROYD; // Only Holroyd works well for camera movement at the moment
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );
