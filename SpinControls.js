@@ -95,9 +95,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.updateAngularVelocity = ( function () {
 
 		var q0 = new THREE.Quaternion(),
-			q1 = new THREE.Quaternion(),
-			q0Conj = new THREE.Quaternion(),
-			angleDelta;
+			q1 = new THREE.Quaternion();
+			// q0Conj = new THREE.Quaternion(), //for path independent rotation
+			// angleDelta;
 
 		return function updateAngularVelocity( p1, p0, timeDelta ) {
 
@@ -186,7 +186,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		} else {
 
 			var box = _this.domElement.getBoundingClientRect();
-			// adjustments come from similar code in the jquery offset() function
 			var d = _this.domElement.ownerDocument.documentElement;
 			_this.screen.left = box.left + window.pageXOffset - d.clientLeft;
 			_this.screen.top = box.top + window.pageYOffset - d.clientTop;
