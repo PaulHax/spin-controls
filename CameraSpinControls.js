@@ -4,6 +4,7 @@
  * @author alteredq / http://alteredqualia.com/
  * @author WestLangley / http://github.com/WestLangley
  * @author erich666 / http://erichaines.com
+ * @author Paul Elliott / http://vizworkshop.com
  */
 
 // Hack of OrbitControls.js to use SpinControls.js for rotation.
@@ -150,8 +151,10 @@ CameraSpinControls = function ( camera, domElement ) {
 				lastPosition.copy( scope.object.position );
 				lastQuaternion.copy( scope.object.quaternion );
 				zoomChanged = false;
-				
-				scope.spinControl.resetInputAfterCameraMovement(); // Don't let camera movement to ratchet mouse movement over sphere across frames
+
+				// Don't let camera movement cause mouse to move over sphere across frames
+				// thus we avoid rotating when panning or dollying
+				scope.spinControl.resetInputAfterCameraMovement(); 
 
 				return true;
 
@@ -824,9 +827,9 @@ CameraSpinControls = function ( camera, domElement ) {
 	window.addEventListener( 'keydown', onKeyDown, false );
 	
 	scope.spinControl = new SpinControls( this.targetObj, 1, camera, this.domElement );
-	// FIXME Camera movement moves point on sphere bug.
 	scope.spinControl.rotateSensitivity *= -1; // Negated it to pull camera around sphere as if sphere is fixed.
-	// scope.spinControl.rotateAlgorithm = scope.spinControl.POINTER_SPHERE_MAPPING.HOLROYD; // Only Holroyd works well for camera movement at the moment
+	scope.spinControl.rotateAlgorithm = scope.spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE; // Only Holroyd works well for camera movement at the moment
+	//FIXME CameraSpinControls jumps when moving off/on sphere with Shoemake mapping
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );

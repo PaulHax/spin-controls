@@ -246,49 +246,46 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objToPointer.subVectors(ndc, objToPointer);
 
 			// Scale by object screen size.  TODO simplify if Orthographic camera.
-			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld); // objEdgePos is aspirational on this line
+			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld); // objEdgePos is still aspirational on this line
 			var offset = new THREE.Vector3().set(_this.trackballRadius, 0, 0);
-			// rotate to point at screen center. TODO Investigate
+			// TODO Investigate rotating offset to point towards screen center for consitant screen space size.
 			// objPos.z = 0;
 			// if(objPos.lengthSq() > 0) {
 			// 	offset.applyAxisAngle(point.set(0, 0, -1),  offset.angleTo(objPos)); 
 			// }
 			offset.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld));
 			objEdgePos.add(offset);
-			objEdgePos.project( _this.camera ); // position in ndc/screen
+			objEdgePos.project(_this.camera); // position in ndc/screen
 			objEdgePos.z = 0;
 			objPos.z = 0;
 			var objRadiusNDC = objEdgePos.distanceTo(objPos);
 
-			objToPointer.x = objToPointer.x * (1 / objRadiusNDC);
-			objToPointer.y = objToPointer.y * (1 / objRadiusNDC);
+			objToPointer.x /= objRadiusNDC;
+			objToPointer.y /= objRadiusNDC;
 			if(_this.camera.aspect) { // Perspective camera probably
 				objToPointer.y /= _this.camera.aspect;
 			}
 
 			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
-			if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+			if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
 				var t = objToPointer.lengthSq();
 				if (t < 0.5) {
 					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
-				}
-				else {
+				} else {
 					point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
 					point.normalize();
 				}
 			}
-			else if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
-				//FIXME CameraSpinControls jumps when moving off/on sphere with Shoemake mapping
+			else if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
 				var t = objToPointer.lengthSq();
 				if (t < 1.0) {
 					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
-				}
-				else {
+				} else {
 					objToPointer.normalize();
 					point.set(objToPointer.x, objToPointer.y, 0.0);
 				}
 			}
-			else if( _this.rotateAlgorithm == _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+			else if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.AZIMUTHAL ) {
 				var t = (Math.PI / 2.0) * objToPointer.length();
 				var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
 				objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
@@ -391,7 +388,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
 		_isTouchDown = true;
-		_this.applyVelocity();  //Todo Should not be needed here
+		_this.applyVelocity();  //TODO Should not be needed here
 
 	}
 

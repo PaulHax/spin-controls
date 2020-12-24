@@ -22,7 +22,11 @@
 				padding: 15px;
 				z-index:100;
 				box-sizing: border-box;
-				pointer-events: none;				
+				pointer-events: none;
+			}
+
+			#mapping {
+				pointer-events: auto;
 			}
 			
 		</style>
@@ -30,20 +34,28 @@
 	<body>
 
 		<div id="info">
-			Spin Controls<br /> Left click or touch spheres to spin them as if touching a trackball.  
-			<br /> Elsewhere: Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch
+			<p><strong>Spin Controls</strong> Left click or touch spheres to spin them as if touching a trackball.</p>
+			<p>Elsewhere: Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch</p>
+			<p>
+				Pointer to trackball sphere mapping method: 
+				<select name="spin-mapping" id="mapping">
+					<option value="holroyd">Holroyd</option>
+					<option value="shoemake">Shoemake</option>
+					<option value="azimuthal">Azimuthal</option>
+				</select>
+			</p>
 		</div>
 
 		<script src="three.min.js"></script>
 		<script src="SpinControls.js"></script>
-		<script src="CameraSpinControls.js"></script> <!-- After SpinControls please -->
+		<script src="CameraSpinControls.js"></script> <!-- CameraSpinControls after SpinControls please -->
 
 		<script>
 			var camera, scene, renderer, 
 				smallSpinner, bigSpinner, spinControlBig, spinControlSmall, 
-				controls, cameraUI, isTouched;
+				controls, cameraUI, isTouched, spinners, mapperSelector;
 			init();
-      		animate(0);
+      		animate( 0 );
       
 			function init() {
 
@@ -164,7 +176,7 @@
 
 					if ( event.button === 0 ) {
 
-						pickControlToEnable(	getPointerInNdc( event.pageX, event.pageY ) );
+						pickControlToEnable( getPointerInNdc( event.pageX, event.pageY ) );
 
 					}	else { //if not left click then move camera
 
@@ -192,6 +204,11 @@
 					controls.enabled = false;
 
 				}
+
+				spinners = [spinControlSmall, spinControlBig, controls.spinControl];
+
+				mapperSelector = document.getElementById('mapping')
+				mapperSelector.addEventListener("change", onSpinMapping);
 				
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -244,7 +261,7 @@
 
 			}
       
-      function animate(timeStamp) {
+      		function animate(timeStamp) {
 
 				requestAnimationFrame( animate );			
         		spinControlSmall.update();	
@@ -324,6 +341,31 @@
 
 				}
 
+			}
+
+			function onSpinMapping() {
+
+				var mappingMode = mapperSelector.options[mapperSelector.selectedIndex].value;
+				var newMode;
+				if( mappingMode === 'holroyd' ) {
+
+					newMode = spinControlBig.POINTER_SPHERE_MAPPING.HOLROYD;
+
+				} else if( mappingMode === 'shoemake' ) {
+
+					newMode = spinControlBig.POINTER_SPHERE_MAPPING.SHOEMAKE;
+
+				} else if( mappingMode === 'azimuthal' ) {
+
+					newMode = spinControlBig.POINTER_SPHERE_MAPPING.AZIMUTHAL;
+
+				}
+				
+				spinners.forEach((spinner) => {
+
+					spinner.rotateAlgorithm = newMode;
+
+				})
 			}
 
 		</script>
