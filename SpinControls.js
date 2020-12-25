@@ -199,6 +199,13 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.resetInputAfterCameraMovement = ( function () {
 		
+		if( _isMouseDown || _isTouchDown ) {
+			// Need to update camera.matrixWorldInverse if camera is moved 
+			// and renderer has not updated matrixWorldInverse yet.
+			_this.camera.updateWorldMatrix(true, false);
+			_this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );
+		}
+
 		if( _isMouseDown ) {
 			_mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
 		}
@@ -216,8 +223,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		return function getPointerInNdc( pageX, pageY ) {
 
 			vector.set(
-				( ( pageX - _this.screen.width * 0.5 - _this.screen.left ) / ( _this.screen.width * 0.5 ) ),
-				( ( _this.screen.height + 2 * ( _this.screen.top - pageY ) ) / _this.screen.height )
+				( pageX - _this.screen.width * 0.5 - _this.screen.left ) / ( _this.screen.width * 0.5 ),
+				( _this.screen.height + 2 * ( _this.screen.top - pageY ) ) / _this.screen.height
 			);
 
 			return vector;
@@ -231,28 +238,25 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		var point = new THREE.Vector3(),
 			objPos = new THREE.Vector3(),
 			objEdgePos = new THREE.Vector3(),
+			offset = new THREE.Vector3(),
 			objToPointer = new THREE.Vector2(),
 			cameraRot = new THREE.Quaternion();
 
 		return function getPointerInSphere( ndc ) {
 
-			// Move pointer to spinning object space on screen
+			// Find vector from object to pointer in screen space
 			_this.object.updateWorldMatrix(true, false);
-			objPos.setFromMatrixPosition(_this.object.matrixWorld);
+			objPos.setFromMatrixPosition(_this.object.matrixWorld);			
 			_this.camera.updateWorldMatrix(true, false);
-			objPos.project( _this.camera ); // position in ndc/screen
-			//object to pointer
-			objToPointer.set(objPos.x, objPos.y);
-			objToPointer.subVectors(ndc, objToPointer);
+			// _this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );  // needed if camera moved before render
+			objPos.project( _this.camera ); // position in ndc/screen			
+			objToPointer.set(objPos.x, objPos.y); 
+			objToPointer.subVectors(ndc, objToPointer); 
 
 			// Scale by object screen size.  TODO simplify if Orthographic camera.
 			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld); // objEdgePos is still aspirational on this line
-			var offset = new THREE.Vector3().set(_this.trackballRadius, 0, 0);
-			// TODO Investigate rotating offset to point towards screen center for consitant screen space size.
-			// objPos.z = 0;
-			// if(objPos.lengthSq() > 0) {
-			// 	offset.applyAxisAngle(point.set(0, 0, -1),  offset.angleTo(objPos)); 
-			// }
+			offset.set(_this.trackballRadius, 0, 0);
+
 			offset.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld));
 			objEdgePos.add(offset);
 			objEdgePos.project(_this.camera); // position in ndc/screen
@@ -290,8 +294,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
 				objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
 				point.set(objToPointer.x, objToPointer.y, Math.cos(t));
-			}
-			
+			}			
 
 			point.applyQuaternion(cameraRot); // Rotate from z axis to camera direction
 
@@ -337,7 +340,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_mousePrev.copy( _mouseCurr );
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
-		_mouseCurrNDC.set( event.pageX, event.pageY )
+		_mouseCurrNDC.set( event.pageX, event.pageY );
 
 		var currentTime = performance.now();
 		var deltaTime = ( currentTime - _lastMouseEventTime ) / 1000.0;

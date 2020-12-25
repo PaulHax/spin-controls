@@ -153,8 +153,7 @@ CameraSpinControls = function ( camera, domElement ) {
 				zoomChanged = false;
 
 				// Don't let camera movement cause mouse to move over sphere across frames
-				// thus we avoid rotating when panning or dollying
-				scope.spinControl.resetInputAfterCameraMovement(); 
+				scope.spinControl.resetInputAfterCameraMovement();
 
 				return true;
 
@@ -828,8 +827,6 @@ CameraSpinControls = function ( camera, domElement ) {
 	
 	scope.spinControl = new SpinControls( this.targetObj, 1, camera, this.domElement );
 	scope.spinControl.rotateSensitivity *= -1; // Negated it to pull camera around sphere as if sphere is fixed.
-	scope.spinControl.rotateAlgorithm = scope.spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE; // Only Holroyd works well for camera movement at the moment
-	//FIXME CameraSpinControls jumps when moving off/on sphere with Shoemake mapping
 	
 	scope.domElement.addEventListener( 'touchend', onTouchEnd, true );
 	scope.domElement.addEventListener( 'touchmove', onTouchMove, false );
