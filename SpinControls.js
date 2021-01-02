@@ -27,8 +27,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
 	// Holyroyd smooths between sphere and hyperbola to avoid jump at sphere edge.
 	// Azimuthal is something else from Yasuhiro Fujii.
-	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 0, HOLROYD: 1, AZIMUTHAL: 2};
-	this.rotateAlgorithm = this.POINTER_SPHERE_MAPPING.HOLROYD;
+	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 0, HOLROYD: 1, AZIMUTHAL: 2, RAYCAST: 3};
+	this.rotateAlgorithm = this.POINTER_SPHERE_MAPPING.RAYCAST;
 
 	// Internals
 
@@ -95,21 +95,20 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.updateAngularVelocity = ( function () {
 
 		var q0 = new THREE.Quaternion(),
-			q1 = new THREE.Quaternion();
-			// q0Conj = new THREE.Quaternion(), //for path independent rotation
-			// angleDelta;
+			q1 = new THREE.Quaternion(),
+			q0Conj = new THREE.Quaternion(); //for path independent rotation
 
 		return function updateAngularVelocity( p1, p0, timeDelta ) {
 
 			// path independent rotation from Shoemake
-			// q0Conj.set(p0.x, p0.y, p0.z, 0.0)
-			// q0Conj.normalize();
-			// q0Conj.conjugate();
-			// q1.set(p1.x, p1.y, p1.z, 0.0).multiply(q0Conj); 
-			// timeDelta *= 2.0; // divide angleDelta by 2 to keep sphere under pointer.  Might break algorithm properties, TODO: perhaps investigate.
+			q0Conj.set(p0.x, p0.y, p0.z, 0.0)
+			q0Conj.normalize();
+			q0Conj.conjugate();
+			q1.set(p1.x, p1.y, p1.z, 0.0).multiply(q0Conj); 
+			timeDelta *= 2.0; // divide angleDelta by 2 to keep sphere under pointer.  Might break algorithm properties, TODO: perhaps investigate.
 			
 			// path dependent
-			q1.setFromUnitVectors(p0, p1); 
+			// q1.setFromUnitVectors(p0, p1);
 			
 			q0.set(p0.x, p0.y, p0.z, 1.0);
 			angleSpeed = q1.angleTo(q0) / timeDelta;			
@@ -117,7 +116,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			// Just set velocity because we are touching trackball without sliding
 			_angularVelocity.crossVectors( p0, p1);
 			_angularVelocity.setLength( angleSpeed );
-			_this.applyVelocity(); // DO IT NOW!
+			_this.applyVelocity();
 
 		};
 
@@ -240,64 +239,99 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objEdgePos = new THREE.Vector3(),
 			offset = new THREE.Vector3(),
 			objToPointer = new THREE.Vector2(),
-			cameraRot = new THREE.Quaternion();
+			cameraRot = new THREE.Quaternion(),			
+			trackBallSphere = new THREE.Sphere(),
+			ray = new THREE.Ray();
 
 		return function getPointerInSphere( ndc ) {
 
 			// Find vector from object to pointer in screen space
-			_this.object.updateWorldMatrix(true, false);
-			objPos.setFromMatrixPosition(_this.object.matrixWorld);			
-			_this.camera.updateWorldMatrix(true, false);
+			_this.object.updateWorldMatrix( true, false );
+			objPos.setFromMatrixPosition( _this.object.matrixWorld );
+			_this.camera.updateWorldMatrix( true, false );
 			// _this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );  // needed if camera moved before render
 			objPos.project( _this.camera ); // position in ndc/screen			
-			objToPointer.set(objPos.x, objPos.y); 
-			objToPointer.subVectors(ndc, objToPointer); 
+			objToPointer.set( objPos.x, objPos.y ); 
+			objToPointer.subVectors( ndc, objToPointer ); 
 
-			// Scale by object screen size.  TODO simplify if Orthographic camera.
-			objEdgePos.setFromMatrixPosition(_this.object.matrixWorld); // objEdgePos is still aspirational on this line
-			offset.set(_this.trackballRadius, 0, 0);
+			// Normalize objToPointer by object screen size
+			// so objToPointer of lenght 1 is 1 object radius distance from object center.
+			// Should we simplify if Orthographic camera?
+			objEdgePos.setFromMatrixPosition( _this.object.matrixWorld ); // objEdgePos is still aspirational on this line
+			offset.set( _this.trackballRadius, 0, 0 );
 
-			offset.applyQuaternion(cameraRot.setFromRotationMatrix(_this.camera.matrixWorld));
-			objEdgePos.add(offset);
-			objEdgePos.project(_this.camera); // position in ndc/screen
+			offset.applyQuaternion( cameraRot.setFromRotationMatrix( _this.camera.matrixWorld ) );
+			objEdgePos.add( offset );
+			objEdgePos.project( _this.camera ); // position in ndc/screen
 			objEdgePos.z = 0;
 			objPos.z = 0;
-			var objRadiusNDC = objEdgePos.distanceTo(objPos);
+			var objRadiusNDC = objEdgePos.distanceTo( objPos );
 
 			objToPointer.x /= objRadiusNDC;
 			objToPointer.y /= objRadiusNDC;
-			if(_this.camera.aspect) { // Perspective camera probably
+			if ( _this.camera.aspect ) { // Perspective camera probably
 				objToPointer.y /= _this.camera.aspect;
 			}
 
-			// Pointer mapping code below derived from https://mimosa-pudica.net/3d-rotation/
-			if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+			if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.RAYCAST ) {
+
+				if ( objToPointer.lengthSq() < 1 ) {
+
+					objPos.setFromMatrixPosition( _this.object.matrixWorld );
+					trackBallSphere.set( objPos, _this.trackballRadius );
+
+					ray.origin.copy( _this.camera.position );
+					ray.direction.set( ndc.x, ndc.y, .5 );
+					ray.direction.unproject( _this.camera ); // In world space
+					ray.direction.sub( _this.camera.position ).normalize(); // Subtract to put around origin
+
+					ray.intersectSphere( trackBallSphere, point );
+					point.sub( objPos );
+					point.normalize(); // updateAngularVelocity expects unit vectors
+
+				} else {
+
+					// Shoemake project on edge of sphere
+					objToPointer.normalize();
+					point.set( objToPointer.x, objToPointer.y, 0.0 );
+					point.applyQuaternion( cameraRot );
+					
+				}
+
+			}
+			// Pointer mapping code below derived from Yasuhiro Fujii's https://mimosa-pudica.net/3d-rotation/
+			else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+
 				var t = objToPointer.lengthSq();
 				if (t < 0.5) {
-					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+					point.set( objToPointer.x, objToPointer.y, Math.sqrt( 1.0 - t ) );
 				} else {
-					point.set(objToPointer.x, objToPointer.y, 1.0 / (2.0 * Math.sqrt(t)));
+					point.set( objToPointer.x, objToPointer.y, 1.0 / ( 2.0 * Math.sqrt( t ) ) );
 					point.normalize();
 				}
-			}
-			else if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
+				point.applyQuaternion( cameraRot ); // Rotate from looking down z axis to camera direction
+
+			} else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
+				
 				var t = objToPointer.lengthSq();
 				if (t < 1.0) {
-					point.set(objToPointer.x, objToPointer.y, Math.sqrt(1.0 - t));
+					point.set( objToPointer.x, objToPointer.y, Math.sqrt( 1.0 - t ) );
 				} else {
 					objToPointer.normalize();
-					point.set(objToPointer.x, objToPointer.y, 0.0);
+					point.set( objToPointer.x, objToPointer.y, 0.0 );
 				}
+				point.applyQuaternion( cameraRot );
+
+			} else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.AZIMUTHAL ) {
+				
+				var t = ( Math.PI / 2.0 ) * objToPointer.length();
+				var sined = t < Number.EPSILON ? 1.0 : Math.sin( t ) / t;
+				objToPointer.multiplyScalar( ( Math.PI / 2.0 ) * sined );
+				point.set( objToPointer.x, objToPointer.y, Math.cos( t ) );
+				point.applyQuaternion( cameraRot );
+
 			}
-			else if( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.AZIMUTHAL ) {
-				var t = (Math.PI / 2.0) * objToPointer.length();
-				var sined = t < Number.EPSILON ? 1.0 : Math.sin(t) / t;
-				objToPointer.multiplyScalar((Math.PI / 2.0) * sined);
-				point.set(objToPointer.x, objToPointer.y, Math.cos(t));
-			}			
-
-			point.applyQuaternion(cameraRot); // Rotate from z axis to camera direction
-
+			
 			return point;
 
 		};
@@ -319,7 +353,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_this.domElement.focus ? _this.domElement.focus() : window.focus();
 		
 		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
-		_mouseCurrNDC.set( event.pageX, event.pageY )
+		_mouseCurrNDC.set( event.pageX, event.pageY );
 		_lastMouseEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;

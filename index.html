@@ -39,6 +39,7 @@
 			<p>
 				Pointer to trackball sphere mapping method: 
 				<select name="spin-mapping" id="mapping">
+					<option value="raycast">Raycast</option>
 					<option value="holroyd">Holroyd</option>
 					<option value="shoemake">Shoemake</option>
 					<option value="azimuthal">Azimuthal</option>
@@ -359,13 +360,18 @@
 
 					newMode = spinControlBig.POINTER_SPHERE_MAPPING.AZIMUTHAL;
 
+				} else if( mappingMode === 'raycast' ) {
+
+					newMode = spinControlBig.POINTER_SPHERE_MAPPING.RAYCAST;
+
 				}
 				
 				spinners.forEach((spinner) => {
 
 					spinner.rotateAlgorithm = newMode;
 
-				})
+				});
+				
 			}
 
 		</script>
