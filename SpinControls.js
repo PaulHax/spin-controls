@@ -24,9 +24,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.dampingFactor = 5; // Increase for more friction
 	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis
 
+	// Raycast projects pointer line through camera frustum for accurate trackball control. 
 	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
 	// Holyroyd smooths between sphere and hyperbola to avoid jump at sphere edge.
-	// Azimuthal is something else from Yasuhiro Fujii.
+	// Azimuthal from Yasuhiro Fujii has unlimited rotation behond the sphere edge.
 	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 0, HOLROYD: 1, AZIMUTHAL: 2, RAYCAST: 3};
 	this.rotateAlgorithm = this.POINTER_SPHERE_MAPPING.RAYCAST;
 
@@ -38,20 +39,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_lastQuaternion = new THREE.Quaternion(),
 		_lastVelTime,
 
-		_mousePrev = new THREE.Vector3(),
-		_mouseCurr = new THREE.Vector3(),
-		_mouseCurrNDC = new THREE.Vector2(),
-		_lastMouseEventTime = 0,
-
-		// Separate touch variables as might be mousing and touching at same time on laptop?
-		_touchPrev = new THREE.Vector3(),
-		_touchCurr = new THREE.Vector3(),
-		_touchCurrNDC = new THREE.Vector2(),
-		_lastTouchEventTime = 0,
+		_pointOnSphere = new THREE.Vector3(),
+		_pointerScreen = new THREE.Vector2(),
+		_pointOnSphereOld = new THREE.Vector3(),
+		_lastPointerEventTime = 0,
 
 		_isPointerDown = false,
-		_isMouseDown = false,
-		_isTouchDown = false,
 
 		_EPS = 0.000001;
 
@@ -85,7 +78,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 			
-			_this.isPointerMovedThisFrame = false;
+			_this.hasPointerMovedThisFrame = false;
 
 		};
 
@@ -198,20 +191,25 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.resetInputAfterCameraMovement = ( function () {
 		
-		if( _isMouseDown || _isTouchDown ) {
+		if( _isPointerDown ) {
 			// Need to update camera.matrixWorldInverse if camera is moved 
 			// and renderer has not updated matrixWorldInverse yet.
 			_this.camera.updateWorldMatrix(true, false);
 			_this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );
+
+			// _mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
+			// _touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
+
+			_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( _pointerScreen.x, _pointerScreen.y ) ) );
 		}
 
-		if( _isMouseDown ) {
-			_mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
-		}
+		// if( _isMouseDown ) {
+		// 	_mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
+		// }
 
-		if( _isTouchDown ) {
-			_touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
-		}
+		// if( _isTouchDown ) {
+		// 	_touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
+		// }
 		
 	} );
 
@@ -337,13 +335,40 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		};
 
 	}() );
+	
+	this.onPointerDown = function( pointerScreenX, pointerScreenY ) {
+
+		_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( pointerScreenX, pointerScreenY ) ) );
+		_pointerScreen.set( pointerScreenX, pointerScreenY )
+		_lastPointerEventTime = performance.now();
+		_angularVelocity.set( 0, 0, 0 );
+		_isPointerDown = true;
+
+	}
+	
+	this.onPointerMove = function( pointerScreenX, pointerScreenY ) {
+		
+		_pointOnSphereOld.copy( _pointOnSphere );
+		_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( pointerScreenX, pointerScreenY ) ) );
+		_pointerScreen.set( pointerScreenX, pointerScreenY );
+
+		var currentTime = performance.now();
+		var deltaTime = ( currentTime - _lastPointerEventTime ) / 1000.0;
+		_lastPointerEventTime = currentTime;
+
+		if( deltaTime > 0 ) { // Sometimes zero due to timer precision?			
+
+			_this.updateAngularVelocity( _pointOnSphere, _pointOnSphereOld, deltaTime);
+
+		}
+		
+		_this.hasPointerMovedThisFrame = true;
+
+	}
 
 	// listeners
 
-	function onMouseDown( event ) {
-
-		if ( _this.enabled === false || event.button !== 0 ) return;
-
+	this.handlePointerDown = function ( event ) {
 
 		event.preventDefault(); // Prevent the browser from scrolling.
 		event.stopImmediatePropagation(); // Stop other controls working.
@@ -352,17 +377,30 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		// prevents the browser from setting it automatically.
 		_this.domElement.focus ? _this.domElement.focus() : window.focus();
 		
-		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
-		_mouseCurrNDC.set( event.pageX, event.pageY );
-		_lastMouseEventTime = performance.now();
-		_angularVelocity.set( 0, 0, 0 );
-		_isPointerDown = true;
-		_isMouseDown = true;
+		_this.dispatchEvent( startEvent );
+
+	}
+
+	this.handlePointerUp = function ( event ) {
+
+		event.preventDefault();
+		
+		_isPointerDown = false;
+
+		_this.dispatchEvent( endEvent );
+
+	}
+
+	function onMouseDown( event ) {
+
+		if ( _this.enabled === false || event.button !== 0 ) return;
+		
+		_this.onPointerDown( event.pageX, event.pageY );
 
 		document.addEventListener( 'mousemove', onMouseMove, false );
 		document.addEventListener( 'mouseup', onMouseUp, false );
 
-		_this.dispatchEvent( startEvent );
+		_this.handlePointerDown( event );
 
 	}
 
@@ -372,21 +410,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		event.preventDefault();
 
-		_mousePrev.copy( _mouseCurr );
-		_mouseCurr.copy( getPointerInSphere( getPointerInNdc( event.pageX, event.pageY ) ) );
-		_mouseCurrNDC.set( event.pageX, event.pageY );
-
-		var currentTime = performance.now();
-		var deltaTime = ( currentTime - _lastMouseEventTime ) / 1000.0;
-		_lastMouseEventTime = currentTime;
-
-		if( deltaTime > 0 ) { // Sometimes zero due to timer precision?			
-
-			_this.updateAngularVelocity( _mouseCurr, _mousePrev, deltaTime);
-
-		}
-		
-		_this.isPointerMovedThisFrame = true;
+		_this.onPointerMove( event.pageX, event.pageY );
 
 	}
 
@@ -394,18 +418,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		if ( _this.enabled === false ) return;
 
-		event.preventDefault();
-
-		if( !_this.isPointerMovedThisFrame || !_this.enableDamping ) {
+		if( !_this.hasPointerMovedThisFrame || !_this.enableDamping ) {
 			_angularVelocity.set( 0, 0, 0 );
 		}
 
-		_isPointerDown = false;
-		_isMouseDown = false;
-
 		document.removeEventListener( 'mousemove', onMouseMove );
 		document.removeEventListener( 'mouseup', onMouseUp );
-		_this.dispatchEvent( endEvent );
+
+		_this.handlePointerUp( event );
 
 	}
 
@@ -416,15 +436,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	} );
 
-	// Function broken out for CameraSpinControls to use in touch end
+	// Function broken out for CameraSpinControls to use in touch end if going from 2 fingers to 1
 	this.handleTouchStart = function( event ) {
-
-		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
-		_touchCurrNDC.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY )
-		_lastTouchEventTime = performance.now();
-		_angularVelocity.set( 0, 0, 0 );
-		_isPointerDown = true;
-		_isTouchDown = true;
+		
+		_this.onPointerDown( event.pageX, event.pageY );
 		_this.applyVelocity();  //TODO Should not be needed here
 
 	}
@@ -433,16 +448,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		if ( _this.enabled === false ) return;
 
-		event.preventDefault(); // Prevent the browser from scrolling.
-		event.stopImmediatePropagation(); // Prevent other controls from working.
-
-		// Manually set the focus since calling preventDefault above
-		// prevents the browser from setting it automatically.
-		_this.domElement.focus ? _this.domElement.focus() : window.focus();
-
 		_this.handleTouchStart( event );
 
-		_this.dispatchEvent( startEvent );
+		_this.handlePointerDown( event );
 
 	}
 
@@ -453,21 +461,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		event.preventDefault();
 		event.stopImmediatePropagation(); // Prevent other controls from working.
 
-		_touchPrev.copy( _touchCurr );
-		_touchCurr.copy( getPointerInSphere( getPointerInNdc( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY ) ) );
-		_touchCurrNDC.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY )
-
-		var currentTime = performance.now();
-		var deltaTime = ( currentTime - _lastTouchEventTime ) / 1000.0;
-		_lastTouchEventTime = currentTime;
-
-		if(deltaTime > 0) { // Sometimes zero due to timer precision?
-
-			_this.updateAngularVelocity( _touchCurr, _touchPrev, deltaTime);
-
-		}
-
-		_this.isPointerMovedThisFrame = true;
+		_this.onPointerMove( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
 
 	}
 
@@ -475,18 +469,15 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		if( _this.enabled === false || !_isPointerDown ) return;
 
-		if( !_this.isPointerMovedThisFrame ) { // TODO maybe set to zero if no dampening/momentum?
+		if( !_this.hasPointerMovedThisFrame ) {
 			
 			// To support subtle touches do big dampening, not zeroing it
-			var deltaTime = ( performance.now() - _lastTouchEventTime ) / 1000.0;
+			var deltaTime = ( performance.now() - _lastPointerEventTime ) / 1000.0;
 			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) 
 		
 		}
 
-		_isPointerDown = false;
-		_isTouchDown = false;
-
-		_this.dispatchEvent( endEvent );
+		_this.handlePointerUp( event );
 
 	}
 
