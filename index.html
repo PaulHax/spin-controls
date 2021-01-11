@@ -25,7 +25,7 @@
 				pointer-events: none;
 			}
 
-			#mapping {
+			#spin-mapping, #relatively-spin-off-trackball {
 				pointer-events: auto;
 			}
 			
@@ -35,26 +35,31 @@
 
 		<div id="info">
 			<p><strong>Spin Controls</strong> Left click or touch spheres to rotate them as if touching a trackball.</p>
-			<p>Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch</p>
+			<p><strong>Camera</strong> | Orbit: Left click / 1 finger | Pan: Right click / 2 fingers | Zoom: Mouse wheel / pinch</p>
 			<p>
-				Pointer to trackball sphere mapping method: 
-				<select name="spin-mapping" id="mapping">
-					<option value="raycast">Raycast</option>
-					<option value="holroyd">Holroyd</option>
-					<option value="shoemake">Shoemake</option>
-					<option value="azimuthal">Azimuthal</option>
-				</select>
+				<label for="mapping">Pointer to trackball sphere mapping method: 
+					<select id="spin-mapping">
+						<option value="raycast">Raycast</option>
+						<option value="holroyd">Holroyd</option>
+						<option value="shoemake">Shoemake</option>
+						<option value="azimuthal">Azimuthal</option>
+					</select>
+				</label>
+				<label for="relatively-spin-off-trackball">Relatively spin off trackball:
+					<input type="checkbox" id="relatively-spin-off-trackball" checked/>
+				</label>
 			</p>
 		</div>
 
-		<script src="three.min.js"></script>
+		<!-- <script src="three.min.js"></script> -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r124/three.min.js"></script>
 		<script src="SpinControls.js"></script>
 		<script src="CameraSpinControls.js"></script> <!-- CameraSpinControls after SpinControls please -->
 
 		<script>
 			var camera, scene, renderer, 
 				smallSpinner, bigSpinner, spinControlBig, spinControlSmall, 
-				controls, cameraUI, isTouched, spinners, mapperSelector;
+				controls, cameraUI, isTouched, spinners, mapperSelector, relativeSpinCheckbox;
 			init();
       		animate( 0 );
       
@@ -208,8 +213,11 @@
 
 				spinners = [spinControlSmall, spinControlBig, controls.spinControl];
 
-				mapperSelector = document.getElementById('mapping')
+				mapperSelector = document.getElementById('spin-mapping')
 				mapperSelector.addEventListener("change", onSpinMapping);
+
+				relativelySpinCheckbox = document.getElementById('relatively-spin-off-trackball')
+				relativelySpinCheckbox.addEventListener("change", onRelativelySpinOffTrackball);				
 				
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -325,7 +333,7 @@
 				if ( !isTouched ) {
 
 					isTouched = true;
-					pickControlToEnable(	getPointerInNdc( event.changedTouches[ 0 ].pageX, event.changedTouches[ 0 ].pageY ) );
+					pickControlToEnable( getPointerInNdc( event.changedTouches[ 0 ].pageX, event.changedTouches[ 0 ].pageY ) );
 
 				}
 
@@ -371,6 +379,16 @@
 					spinner.rotateAlgorithm = newMode;
 
 				});
+				
+			}
+
+			function onRelativelySpinOffTrackball() {
+
+				spinners.forEach((spinner) => {
+
+					spinner.relativelySpinOffTrackball = relativelySpinCheckbox.checked;
+
+				});				
 				
 			}
 

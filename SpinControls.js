@@ -20,9 +20,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.enabled = true;
 
 	this.rotateSensitivity = 1.0; // Keep at 1 for direct touching feel
+	this.relativelySpinOffTrackball = true;
 	this.enableDamping = true;
 	this.dampingFactor = 5; // Increase for more friction
-	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning around an axis
+	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning to an axis
 
 	// Raycast projects pointer line through camera frustum for accurate trackball control. 
 	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
@@ -43,9 +44,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		_pointerScreen = new THREE.Vector2(),
 		_pointOnSphereOld = new THREE.Vector3(),
 		_lastPointerEventTime = 0,
+		_wasLastPointerEventOnSphere = false,
 
 		_isPointerDown = false,
 
+		_OFF_TRACKBALL_VELOCITY_GAIN = 8.0, // ToDo: Base this on angle change around sphere edge?
 		_EPS = 0.000001;
 
 	var changeEvent = { type: 'change' };
@@ -192,24 +195,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.resetInputAfterCameraMovement = ( function () {
 		
 		if( _isPointerDown ) {
+
 			// Need to update camera.matrixWorldInverse if camera is moved 
 			// and renderer has not updated matrixWorldInverse yet.
 			_this.camera.updateWorldMatrix(true, false);
-			_this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );
-
-			// _mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
-			// _touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
+			_this.camera.matrixWorldInverse.copy( _this.camera.matrixWorld ).invert();
 
 			_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( _pointerScreen.x, _pointerScreen.y ) ) );
 		}
-
-		// if( _isMouseDown ) {
-		// 	_mouseCurr.copy( getPointerInSphere( getPointerInNdc( _mouseCurrNDC.x, _mouseCurrNDC.y ) ) );
-		// }
-
-		// if( _isTouchDown ) {
-		// 	_touchCurr.copy( getPointerInSphere( getPointerInNdc( _touchCurrNDC.x, _touchCurrNDC.y ) ) );
-		// }
 		
 	} );
 
@@ -230,27 +223,25 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}() );
 
-	var getPointerInSphere = ( function () {
+	// Find vector from object to pointer in screen space
+	var getObjectToPointer = ( function () { 
 
-		var point = new THREE.Vector3(),
-			objPos = new THREE.Vector3(),
+		var objPos = new THREE.Vector3(),
 			objEdgePos = new THREE.Vector3(),
 			offset = new THREE.Vector3(),
 			objToPointer = new THREE.Vector2(),
-			cameraRot = new THREE.Quaternion(),			
-			trackBallSphere = new THREE.Sphere(),
-			ray = new THREE.Ray();
+			cameraRot = new THREE.Quaternion();
 
-		return function getPointerInSphere( ndc ) {
-
-			// Find vector from object to pointer in screen space
+		return function getObjectToPointer( pointerNdcScreen ) {
+			
 			_this.object.updateWorldMatrix( true, false );
 			objPos.setFromMatrixPosition( _this.object.matrixWorld );
 			_this.camera.updateWorldMatrix( true, false );
-			// _this.camera.matrixWorldInverse.getInverse( _this.camera.matrixWorld );  // needed if camera moved before render
+			// Need to update camera.matrixWorldInverse if camera moved before renderer.render
+			_this.camera.matrixWorldInverse.copy( _this.camera.matrixWorld ).invert();
 			objPos.project( _this.camera ); // position in ndc/screen			
 			objToPointer.set( objPos.x, objPos.y ); 
-			objToPointer.subVectors( ndc, objToPointer ); 
+			objToPointer.subVectors( pointerNdcScreen, objToPointer ); 
 
 			// Normalize objToPointer by object screen size
 			// so objToPointer of lenght 1 is 1 object radius distance from object center.
@@ -270,6 +261,27 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			if ( _this.camera.aspect ) { // Perspective camera probably
 				objToPointer.y /= _this.camera.aspect;
 			}
+
+			return objToPointer;
+
+		}
+	}() );
+
+	// Finds point on sphere in world coordinate space
+	var getPointerInSphere = ( function () {
+
+		var point = new THREE.Vector3(),
+			objPos = new THREE.Vector3(),
+			objToPointer = new THREE.Vector2(),
+			cameraRot = new THREE.Quaternion(),
+			trackBallSphere = new THREE.Sphere(),
+			ray = new THREE.Ray();
+
+		return function getPointerInSphere( ndc ) {
+
+			objToPointer.copy( getObjectToPointer( ndc ) );
+
+			cameraRot.setFromRotationMatrix( _this.camera.matrixWorld );
 
 			if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.RAYCAST ) {
 
@@ -338,33 +350,142 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	
 	this.onPointerDown = function( pointerScreenX, pointerScreenY ) {
 
-		_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( pointerScreenX, pointerScreenY ) ) );
-		_pointerScreen.set( pointerScreenX, pointerScreenY )
+		var pointerNdc = getPointerInNdc( pointerScreenX, pointerScreenY );
+
+		var objToPointer = getObjectToPointer( pointerNdc );
+
+		if ( objToPointer.lengthSq() < 1 ) {
+
+			_wasLastPointerEventOnSphere = true;
+			_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
+
+		} else {
+
+			_wasLastPointerEventOnSphere = false;
+			
+		}
+
+		_pointerScreen.set( pointerScreenX, pointerScreenY );
 		_lastPointerEventTime = performance.now();
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
 
 	}
+
+		// Finds point on sphere in world coordinate space
+	this.onPointerMove = ( function () {
+
+		var pointerNdc = new THREE.Vector3(),
+			objToPointer = new THREE.Vector2();
+
+		// for relative movement off sphere
+		var deltaMouse = new THREE.Vector2(),
+			lastNdc = new THREE.Vector2(),
+			objectPos = new THREE.Vector3(),
+			objectToCamera = new THREE.Vector3(),
+			polarVel = new THREE.Vector3(),
+			lastPointOnSphere = new THREE.Vector3();
 	
-	this.onPointerMove = function( pointerScreenX, pointerScreenY ) {
-		
-		_pointOnSphereOld.copy( _pointOnSphere );
-		_pointOnSphere.copy( getPointerInSphere( getPointerInNdc( pointerScreenX, pointerScreenY ) ) );
-		_pointerScreen.set( pointerScreenX, pointerScreenY );
+		return function onPointerMove( pointerScreenX, pointerScreenY ) {
 
-		var currentTime = performance.now();
-		var deltaTime = ( currentTime - _lastPointerEventTime ) / 1000.0;
-		_lastPointerEventTime = currentTime;
+			var currentTime = performance.now();
+			var deltaTime = ( currentTime - _lastPointerEventTime ) / 1000.0;
+			_lastPointerEventTime = currentTime;
+			
+			_pointOnSphereOld.copy( _pointOnSphere );
+			
+			pointerNdc.copy( getPointerInNdc( pointerScreenX, pointerScreenY ) );
 
-		if( deltaTime > 0 ) { // Sometimes zero due to timer precision?			
+			objToPointer.copy( getObjectToPointer( pointerNdc ) )
 
-			_this.updateAngularVelocity( _pointOnSphere, _pointOnSphereOld, deltaTime);
+			if ( objToPointer.lengthSq() < 1 || !this.relativelySpinOffTrackball) {
+				// Pointer is within radius of object trackball circle on screen
+
+				_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
+
+				if ( _wasLastPointerEventOnSphere ) {
+
+					// Still on sphere
+					if( deltaTime > 0 ) { // Sometimes zero due to timer precision?			
+
+						_this.updateAngularVelocity( _pointOnSphere, _pointOnSphereOld, deltaTime );
+			
+					}
+					
+				} 
+				else { 
+
+					// Moved on sphere 
+					_angularVelocity.set( 0, 0, 0 );
+					_lastVelTime = currentTime;
+
+				}
+
+				_wasLastPointerEventOnSphere = true;
+			
+			} else {
+
+				if ( _wasLastPointerEventOnSphere ) {
+
+					// Moved off sphere 
+					_angularVelocity.set( 0, 0, 0 );
+					_lastVelTime = currentTime;
+					
+				} 
+				else { 
+
+					// Still off sphere
+					
+					if( deltaTime > 0 ) { // Sometimes zero due to timer precision?		
+						
+						// Relative movement
+						//ToDo: Simplify by find pointer's delta polar coordinates with THREE.Sphere?
+
+						lastNdc.copy( getPointerInNdc( _pointerScreen.x, _pointerScreen.y ) );
+						
+						deltaMouse.subVectors(pointerNdc, lastNdc);
+
+						// Find change in pointer radius to trackball center
+						objectPos.setFromMatrixPosition( _this.object.matrixWorld );
+						objectToCamera.copy( _this.camera.position ).sub( objectPos );
+					
+						var ndcPerBall = ( 1 / ( _this.camera.fov / 2 ) ) // NDC per field of view degree
+							/ ( Math.atan( _this.trackballRadius / objectToCamera.length() ) ); // Ball angle size
+
+						objToPointer.normalize();
+
+						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcPerBall / deltaTime * _OFF_TRACKBALL_VELOCITY_GAIN;
+
+						lastPointOnSphere.copy( getPointerInSphere( lastNdc ) );
+
+						_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
+
+						_angularVelocity.crossVectors( objectToCamera, _pointOnSphere );
+						_angularVelocity.setLength( deltaRadius ); // Just set it because we are touching trackball without sliding
+
+						// Find polar angle change
+						angle = lastPointOnSphere.angleTo( _pointOnSphere ) / deltaTime;
+						polarVel.crossVectors( lastPointOnSphere, _pointOnSphere );
+						polarVel.setLength( angle ); 
+
+						_angularVelocity.add( polarVel );
+						
+						_this.applyVelocity();
+				
+					}				
+
+				}
+
+				_wasLastPointerEventOnSphere = false;
+
+			}
+
+			_pointerScreen.set( pointerScreenX, pointerScreenY );
+			
+			_this.hasPointerMovedThisFrame = true;
 
 		}
-		
-		_this.hasPointerMovedThisFrame = true;
-
-	}
+	}() );
 
 	// listeners
 
