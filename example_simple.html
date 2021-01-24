@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-	<script>
-		(function(){var script=document.createElement('script');script.onload=function(){var stats=new Stats();document.body.appendChild(stats.dom);requestAnimationFrame(function loop(){stats.update();requestAnimationFrame(loop)});};script.src='stats.js';document.head.appendChild(script);})()
-	</script>
 	<head>
 		<title>Simple example - spin controls</title>
 		<meta charset="utf-8">
@@ -33,17 +30,17 @@
 	<body>
 
 		<div id="info">
-      Spin Controls <br /> Left click or touch sphere to spin it as if touching a trackball.
+    		Spin Controls <br /> Left click or touch sphere to spin it as if touching a trackball.
 		</div>
 		
-    <script src="three.min.js"></script>
+    	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r124/three.min.js"></script>
 		<script src="SpinControls.js"></script>
 
 		<script>
 			var camera, scene, renderer;
 			init();
 			render();
-      animate(0);
+      		animate(0);
       
 			function init() {
 
@@ -53,8 +50,12 @@
 				document.body.appendChild( renderer.domElement );
         
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
-        camera.position.set( 750, 300, 750 );
-				camera.lookAt( 0, 0, 0 );
+        		// var width = 2;
+				// var height = 2;
+				// camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+				
+				camera.position.set( 600, 300, 500 );
+				camera.lookAt( .5, .4, 0 );
 				
 				scene = new THREE.Scene();
 
@@ -62,19 +63,20 @@
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
-        scene.add( light );
-        
-        var radius = 300;
-        var group = new THREE.Group();
-        group.position.set(100, 0, 0);
-        var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
-        var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
-        var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
-        group.add( new THREE.LineSegments( geometry, lineMaterial ) );
-        group.add( new THREE.Mesh( geometry, meshMaterial ) );
-        scene.add( group );
+				scene.add( light );
+				
+				var radius = 225;
+				var group = new THREE.Group();
+				group.position.set(0, 0, 0);
+				var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
+				var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
+				var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
+				group.add( new THREE.LineSegments( geometry, lineMaterial ) );
+				group.add( new THREE.Mesh( geometry, meshMaterial ) );
+				scene.add( group );
         
 				spinControl = new SpinControls( group, radius, camera, renderer.domElement );
+				//spinControl.rotateAlgorithm = spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE // options
         
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -85,15 +87,15 @@
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();        
 				renderer.setSize( window.innerWidth, window.innerHeight );
-        spinControl.onWindowResize();
+        		spinControl.onWindowResize();
 				render();
 
 			}
       
-      function animate(timeStamp) {
+      		function animate(timeStamp) {
 
 				requestAnimationFrame( animate );			
-        spinControl.update();
+        		spinControl.update();
 				render();
 				
 			}

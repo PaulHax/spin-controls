@@ -30,18 +30,18 @@
 	<body>
 
 		<div id="info">
-      Camera Spin Controls<br />Orbit camera - Left click / 1 finger | Dolly - Right click / 2 fingers | Zoom - Mouse wheel / pinch
+      		Camera Spin Controls<br />Orbit camera - Left click / 1 finger | Pan - Right click / 2 fingers | Dolly - Mouse wheel / pinch
 		</div>
 
-    <script src="three.min.js"></script>
+    	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r124/three.min.js"></script>
 		<script src="SpinControls.js"></script>
 		<script src="CameraSpinControls.js"></script>
 
 		<script>
-			var camera, scene, renderer, group, meshMaterial, lineMaterial;
+			var camera, scene, renderer, trackballWidget, meshMaterial, lineMaterial;
 			init();
 			render();
-      animate(0);
+      		animate( 0 );
       
 			function init() {
 
@@ -50,45 +50,57 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
         
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-        camera.position.set( 750, 300, 750 );
-        camera.lookAt( 0, 0, 0 );
 				scene = new THREE.Scene();
 				scene.add( new THREE.GridHelper( 1000, 6 ) );
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+
+				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
+				cameraSpinControl.distanceFromPivot = 500;
+
+				// Uncomment for third person view of CameraSpinControls 
+				// And comment out CameraSpinControls above 
+				// camera.position.set( 500, 200, 500 );
+				// camera.lookAt( 0, 0, 0 );
+				// var camera2 = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				// scene.add( camera2 );
+				// const axesHelper = new THREE.AxesHelper( 50 );
+				// camera2.add( axesHelper );
+				// cameraSpinControl = new CameraSpinControls( camera2, renderer.domElement );				
+				// cameraSpinControl.distanceFromPivot = 200;
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
 				
+				// Something to look at
 				var geometry = new THREE.TorusKnotBufferGeometry( 100, 20, 100, 16 );
-				var material = new THREE.MeshNormalMaterial( );
+				var material = new THREE.MeshNormalMaterial();
 				var torusKnot = new THREE.Mesh( geometry, material );
 				scene.add( torusKnot );
-        
-        group = new THREE.Group();
-        group.position.set(0, 0, 0);
-        var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
+		
+				// Transparent sphere to represent the CameraSpinControls trackball
+				trackballWidget = new THREE.Group();
+				trackballWidget.position.set( 0, 0, 0 );
+				var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
 				meshMaterial = new THREE.MeshBasicMaterial( { color: 0xaaaaff, flatShading: true, transparent: true, opacity: 0.2 } );
-        lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
-        group.add( new THREE.LineSegments( geometry, lineMaterial ) );
-        group.add( new THREE.Mesh( geometry, meshMaterial ) );
-				scene.add( group );
-				group.visible = false;
-        
-				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-				cameraSpinControl.objectOffsetDistance = 900;
-
+				lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
+				trackballWidget.add( new THREE.LineSegments( geometry, lineMaterial ) );
+				trackballWidget.add( new THREE.Mesh( geometry, meshMaterial ) );
+				scene.add( trackballWidget );
+				trackballWidget.visible = false;
+				
 				function updateCameraSpinUI() {
 
-					group.position.copy( cameraSpinControl.target );
+					trackballWidget.position.copy( cameraSpinControl.target );
 					var r = cameraSpinControl.spinControl.trackballRadius;
-					group.scale.set( r, r, r );
+					trackballWidget.scale.set( r, r, r );
 
 				}
 
 				cameraSpinControl.addEventListener( 'start', function ( event ) {
 
-					group.visible = true;
+					trackballWidget.visible = true;
 					updateCameraSpinUI();
 
 				} );
@@ -101,15 +113,13 @@
 				
 				cameraSpinControl.addEventListener( 'end', function ( event ) {
 
-					group.visible = false;
+					trackballWidget.visible = false;
 
 				} );
-        
-				
 				
 				window.addEventListener( 'resize', onWindowResize, false );
 
-      }
+      		}
       
       
 			function onWindowResize() {
@@ -117,15 +127,15 @@
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();        
 				renderer.setSize( window.innerWidth, window.innerHeight );
-        cameraSpinControl.onWindowResize();
+        		cameraSpinControl.onWindowResize();
 				render();
 
 			}
       
-      function animate(timeStamp) {
+			function animate(timeStamp) {
 
-				requestAnimationFrame( animate );			
-        cameraSpinControl.update();
+				requestAnimationFrame( animate );
+        		cameraSpinControl.update();
 				render();
 				
 			}
