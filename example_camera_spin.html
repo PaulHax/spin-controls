@@ -50,22 +50,36 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
         
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-				camera.position.set( 750, 300, 750 );
-				camera.lookAt( 0, 0, 0 );
-
 				scene = new THREE.Scene();
 				scene.add( new THREE.GridHelper( 1000, 6 ) );
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+
+				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
+				cameraSpinControl.distanceFromPivot = 500;
+
+				// Uncomment for third person view of CameraSpinControls 
+				// And comment out CameraSpinControls above 
+				// camera.position.set( 500, 200, 500 );
+				// camera.lookAt( 0, 0, 0 );
+				// var camera2 = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				// scene.add( camera2 );
+				// const axesHelper = new THREE.AxesHelper( 50 );
+				// camera2.add( axesHelper );
+				// cameraSpinControl = new CameraSpinControls( camera2, renderer.domElement );				
+				// cameraSpinControl.distanceFromPivot = 200;
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
 				
+				// Something to look at
 				var geometry = new THREE.TorusKnotBufferGeometry( 100, 20, 100, 16 );
 				var material = new THREE.MeshNormalMaterial();
 				var torusKnot = new THREE.Mesh( geometry, material );
 				scene.add( torusKnot );
-        
+		
+				// Transparent sphere to represent the CameraSpinControls trackball
 				trackballWidget = new THREE.Group();
 				trackballWidget.position.set( 0, 0, 0 );
 				var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
@@ -76,19 +90,6 @@
 				scene.add( trackballWidget );
 				trackballWidget.visible = false;
 				
-				var camera2 = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-				camera2.position.set( 10, 0, 0 );
-				camera2.lookAt( 0, 0, 0 );
-				scene.add( camera2 );
-				var geometry = new THREE.TorusKnotBufferGeometry( 10, 2, 100, 16 );
-				var material = new THREE.MeshNormalMaterial();
-				var torusKnot = new THREE.Mesh( geometry, material );
-				camera2.add( torusKnot );
-
-				// cameraSpinControl = new CameraSpinControls( camera2, renderer.domElement );
-				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-				cameraSpinControl.objectOffsetDistance = 200;
-
 				function updateCameraSpinUI() {
 
 					trackballWidget.position.copy( cameraSpinControl.target );

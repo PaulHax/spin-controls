@@ -27,7 +27,7 @@ CameraSpinControls = function ( camera, domElement ) {
 	this.targetObj = new THREE.Object3D();
 	this.targetObj.lookAt(camera.position)
 	this.target = this.targetObj.position;
-	this.objectOffsetDistance = this.target.distanceTo( camera.position );
+	this.distanceFromPivot = this.target.distanceTo( camera.position );
 
 	// How far you can dolly in and out ( PerspectiveCamera only )
 	this.minDistance = 0;
@@ -111,10 +111,10 @@ CameraSpinControls = function ( camera, domElement ) {
 
 			scope.spinControl.update();
 			
-			scope.objectOffsetDistance *= scale;
+			scope.distanceFromPivot *= scale;
 
 			// restrict radius to be between desired limits
-      		scope.objectOffsetDistance = Math.max( scope.minDistance, Math.min( scope.maxDistance, scope.objectOffsetDistance ) );
+      		scope.distanceFromPivot = Math.max( scope.minDistance, Math.min( scope.maxDistance, scope.distanceFromPivot ) );
       
 			scope.ajustTrackballRadius();
 
@@ -123,7 +123,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 			scope.targetObj.updateWorldMatrix(true, false);
 			scope.object.matrix.copy( scope.targetObj.matrixWorld );
-			objectOffset.makeTranslation( 0, 0, scope.objectOffsetDistance );
+			objectOffset.makeTranslation( 0, 0, scope.distanceFromPivot );
 			scope.object.matrix.multiply( objectOffset );
 			scope.object.matrix.decompose( scope.object.position, scope.object.quaternion, scope.object.scale );
 
@@ -174,7 +174,7 @@ CameraSpinControls = function ( camera, domElement ) {
     if ( scope.object.isPerspectiveCamera ) {
 
       var limitingFov = Math.min(scope.object.fov,  scope.object.fov * scope.object.aspect);
-      scope.spinControl.trackballRadius = .9 * scope.objectOffsetDistance * Math.sin( ( limitingFov / 2 ) * Math.PI / 180.0 );
+      scope.spinControl.trackballRadius = .9 * scope.distanceFromPivot * Math.sin( ( limitingFov / 2 ) * Math.PI / 180.0 );
 
     } else {
 
