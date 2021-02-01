@@ -1,6 +1,6 @@
 # SpinControls for Three.JS
 
-Trackball style control for THREE.Objects and Cameras. Featuring pointer to trackball accuracy and unlimited rotation. 
+Trackball style control for three.js Objects and Cameras. Featuring pointer to trackball accuracy and unlimited rotation. 
 
 
 ## Demo
@@ -8,22 +8,22 @@ Trackball style control for THREE.Objects and Cameras. Featuring pointer to trac
 https://paulhax.github.io/spin-controls/
 
 
-## When to use SpinControls
+## Features
 
-Like other trackball style controls, SpinControls does not limit rotation of the up axis (usually +Y) like THREE.OrbitControls or other “turntable” style controls.  When your model has no natural up direction, or you must view from a “rolled” orientation, use a trackball style control.
-
-Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor by casting a ray through the camera projection.  To support unlimited rotation until reaching the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
-
-
-### Features of SpinControls
-
-- Accruate pointer to trackball feel by perspective raycast
+- Accurate pointer to trackball feel by perspective raycast
 - Continuous relative rotation when pointer is beyond trackball
 - Camera or object control
 - Touchscreen support
-- Momentum for a little movement after releasing pointer
+- Momentum for movement after releasing pointer
 - Raycast, Shoemake, Holroyd, and Fujii's pointer to trackball mapping methods
 - Option for an axis of spin constraint
+
+
+## When to use SpinControls
+
+Like other trackball style controls, SpinControls does not limit rotation of the up axis.  THREE.OrbitControls and other “turntable” style controls constrain rotation about the up axis, often +Y.  Thats good, but when your model has no natural up direction, or you must view from a “rolled” orientation, use a trackball style control.
+
+Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor with raycasting.  Also, to support unlimited rotation until reaching the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
 
 
 ## Spin object
@@ -62,24 +62,24 @@ cameraSpinControl.addEventListener( 'start', function ( event ) {
 ## Differences from THREE.TrackballControls
 
 
-#### Raycasting of pointer to trackball
+### Raycasting of pointer to trackball
 
-With SpinControls, the point on the sphere that was clicked stays under the pointer.  SpinControls casts a ray through the camera’s perspective to find the point on the trackball sphere the cursor is over. 
+To keep trackball point clicked on under the pointer, SpinControls casts a ray through the camera projection.
 
 THREE.TrackballControls, along with Shoemake’s arcball, use an orthographic projection in their pointer to trackball mapping.  When the pointer moves over the trackball closer to the edges of the screen, the trackball rotates too much and the trackball point clicked on disconnects from the cursor position.  With an orthographic camera, this is not a problem.   With the more common perspective camera, the trackball appears to swim under the pointer.  
 
 
-#### Continuous rotation beyond 3D viewport or trackball
+### Continuous rotation beyond 3D viewport or trackball
 
 For large rotations with one gesture, SpinControls continues to rotate when the pointer is off the trackball.  THREE.TrackballControls/Shoemake stop responding to pointer movement along the line from the pointer to the trackball center.  Sadly, without using the browser pointer lock API, SpinControls can’t get the relative movement of the mouse when it reaches the edge of the screens and rotation will stop.
 
 
-#### Rotation of THREE.Objects
+### Rotation of THREE.Objects
 
 At its core SpinControls rotates THREE.Objects.  Option for an axis of spin constraint.
 
 
-#### Less performant, more complicated and buggy than THREE.TrackballControls =)
+### Less efficient, more complicated and buggy than THREE.TrackballControls =)
 
 Use SpinControls when you want:
 
@@ -90,7 +90,7 @@ Use SpinControls when you want:
 
 ## Links that helped
 
-Excellent trackball introduction: [https://www.mattkeeter.com/projects/rotation/](https://www.mattkeeter.com/projects/rotation/)
+Short trackball introduction: [https://www.mattkeeter.com/projects/rotation/](https://www.mattkeeter.com/projects/rotation/)
 
 Trackballs Revisited paper: [http://hjemmesider.diku.dk/~kash/papers/DSAGM2002_henriksen.pdf](http://hjemmesider.diku.dk/~kash/papers/DSAGM2002_henriksen.pdf)
 
