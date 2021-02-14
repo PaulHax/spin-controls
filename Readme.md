@@ -1,11 +1,9 @@
-# SpinControls for Three.JS
+# SpinControls for three.js
 
 Trackball style control for three.js Objects and Cameras. Featuring pointer to trackball accuracy and unlimited rotation. 
 
 
-## Demo
-
-https://paulhax.github.io/spin-controls/
+## [Demo](https://paulhax.github.io/spin-controls/)
 
 
 ## Features
@@ -16,14 +14,14 @@ https://paulhax.github.io/spin-controls/
 - Touchscreen support
 - Momentum for movement after releasing pointer
 - Raycast, Shoemake, Holroyd, and Fujii's pointer to trackball mapping methods
-- Option for an axis of spin constraint
+- Axis of spin constraint option
 
 
 ## When to use SpinControls
 
-Like other trackball style controls, SpinControls does not limit rotation of the up axis.  THREE.OrbitControls and other “turntable” style controls constrain rotation about the up axis, often +Y.  Thats good, but when your model has no natural up direction, or you must view from a “rolled” orientation, use a trackball style control.
+Like other trackball style controls, SpinControls does not limit rotation about a "up" axis.  THREE.OrbitControls and other “turntable” style controls constrain rotation about the up axis, often +Y.  Constraints are good.  But when a model has no natural up direction, or you must view a scene from a “rolled” orientation, use a trackball style control.
 
-Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor with raycasting.  Also, to support unlimited rotation until reaching the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
+Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor with raycasting.  Also, to support unlimited rotation until the cursor hits the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
 
 
 ## Spin object
@@ -39,6 +37,10 @@ var spinControl = new SpinControls( mesh, radius, camera, renderer.domElement );
 
 // Call every frame, like before renderer.render( scene, camera ) in function animate()
   spinControl.update();
+
+// Call when viewport HTML element resizes or moves, like 'resize' event callback
+// window.addEventListener( 'resize', onWindowResize, false );
+  cameraSpinControl.onWindowResize();
 ```
 
 
@@ -49,7 +51,12 @@ var camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHe
 var cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
 var cameraSpinControl.distanceFromPivot = 500;
 
-  cameraSpinControl.update(); // Call every frame
+// Call every frame, like before renderer.render( scene, camera ) in function animate()
+  cameraSpinControl.update();
+
+// Call when viewport HTML element resizes or moves, probably in 
+// window.addEventListener( 'resize', onWindowResize, false );
+  cameraSpinControl.onWindowResize();
 
 // To draw some rotation UI, can register for start, change, and end events
 cameraSpinControl.addEventListener( 'start', function ( event ) {
