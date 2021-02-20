@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>Camera Spin Pointer Centered Example - SpinControls</title>
+		<title>Camera Spin Pointer Pivot Example - SpinControls</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
@@ -29,7 +29,7 @@
 	<body>
 
 		<div id="info">
-			Camera Spin Pointer Centered<br />Orbit camera - Left click / 1 finger | Pan - Right click / 2 fingers | Dolly - Mouse wheel / pinch
+			Camera Spin Pointer Pivot<br />Orbit camera - Left click / 1 finger | Pan - Right click / 2 fingers | Dolly - Mouse wheel / pinch
 		</div>
 
     	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r124/three.min.js"></script>
@@ -37,7 +37,7 @@
 		<script src="CameraSpinControls.js"></script>
 
 		<script>
-			var camera, scene, renderer, trackballWidget, meshMaterial, lineMaterial;
+			var camera, scene, renderer, controls, trackballWidget, meshMaterial, lineMaterial;
 			init();
 			render();
       		animate( 0 );
@@ -52,22 +52,23 @@
 				scene = new THREE.Scene();
 				scene.add( new THREE.GridHelper( 1000, 6 ) );
 
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-				camera.position.set(100, 0, 500);
-
-				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-				cameraSpinControl.distanceFromPivot = 500;
-				cameraSpinControl.isTargetOffCenter = true;
-
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.set(100, 0, 500);
+
+				controls = new CameraSpinControls( camera, renderer.domElement );
+				controls.isTargetOffCenter = true;
 				
 				// Something to look at
 				var geometry = new THREE.TorusKnotBufferGeometry( 100, 20, 100, 16 );
 				var material = new THREE.MeshNormalMaterial();
 				var torusKnot = new THREE.Mesh( geometry, material );
 				scene.add( torusKnot );
+
+				var clickable = [ torusKnot ];
 		
 				// Transparent sphere to represent the CameraSpinControls trackball
 				trackballWidget = new THREE.Group();
@@ -81,84 +82,106 @@
 				trackballWidget.visible = false;
 
 				var raycaster = new THREE.Raycaster();
-				var mouse = new THREE.Vector2();
+				var pointerPos = new THREE.Vector2();
 				 
 				function onMouseMove( event ) {
 
-					mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-					mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+					pointerPos.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+					pointerPos.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
 
 				}
 
 				window.addEventListener( 'mousemove', onMouseMove, false );
 
 				function onPointerDown() {
-					raycaster.setFromCamera( mouse, camera );
-					var intersects = raycaster.intersectObject( torusKnot );					
+
+					raycaster.setFromCamera( pointerPos, camera );
+					var intersects = raycaster.intersectObjects( clickable );					
 
 					if(intersects.length) {
 
-						cameraSpinControl.target.copy(intersects[0].point);
-						cameraSpinControl.movedTarget();
+						controls.setTargetPosition(intersects[0].point);
 
 					} else {
 
-						// Comment out to rotate about trackball centered on mouse
-						cameraSpinControl.target.set(0, 0, -cameraSpinControl.distanceFromPivot)
-						cameraSpinControl.target.applyQuaternion(camera.quaternion)
-						cameraSpinControl.target.add(camera.position)
-						cameraSpinControl.movedTarget();
+						// Move trackball to center of screen if not clicking on anything.
+						// Comment out to rotate with trackball centered on mouse.
+						controls.target.set(0, 0, -controls.distanceFromPivot);
+						controls.target.applyQuaternion(camera.quaternion);
+						controls.target.add(camera.position);
+						controls.setTargetPosition(controls.target);
 
 					}
+
 				}
 
 				window.addEventListener( 'mousedown', onPointerDown, true );
 
 				function touchStart( event ) {
 
-					mouse.x = ( event.touches[ 0 ].clientX / window.innerWidth ) * 2 - 1;
-					mouse.y = - ( event.touches[ 0 ].clientY / window.innerHeight ) * 2 + 1;
+					pointerPos.x = ( event.touches[ 0 ].clientX / window.innerWidth ) * 2 - 1;
+					pointerPos.y = - ( event.touches[ 0 ].clientY / window.innerHeight ) * 2 + 1;
 					onPointerDown();
 
 				}
 
 				window.addEventListener( 'touchstart', touchStart, true );
-
 				
 				function updateCameraSpinUI() {
 
-					trackballWidget.position.copy( cameraSpinControl.target );
-					var r = cameraSpinControl.spinControl.trackballRadius;
+					trackballWidget.position.copy( controls.target );
+					var r = controls.spinControl.trackballRadius;
 					trackballWidget.scale.set( r, r, r );
 
 				}
 
-				cameraSpinControl.addEventListener( 'start', function ( event ) {
+				controls.addEventListener( 'start', function ( event ) {
 
-					trackballWidget.visible = true;
-					updateCameraSpinUI();
+					if (event.state === controls.STATE.DOLLY) {
 
-					if (event.state === cameraSpinControl.STATE.DOLLY) {
-						// trackball is centered on cursor at distanceFromPivot from camera
-						// so dolly/zoom moves in mouse direction						
-						raycaster.setFromCamera( mouse, camera );
-						cameraSpinControl.target.copy(raycaster.ray.direction);
-						cameraSpinControl.target.setLength(cameraSpinControl.distanceFromPivot);
-						cameraSpinControl.target.add(raycaster.ray.origin);
-						cameraSpinControl.movedTarget();
+						// Center trackball on cursor so dolly/zoom moves in mouse direction.
+						// Clamp min/max zoom distance by placing trackball at intersection point.
+						// Only useful if CameraSpinControls.minDistance/maxDistance set.
+						raycaster.setFromCamera( pointerPos, camera );
+						var intersects = raycaster.intersectObjects( clickable );
+
+						if(intersects.length) {
+
+							controls.target.copy(intersects[0].point);
+
+						} else {
+
+							controls.target.copy(raycaster.ray.direction);
+							controls.target.setLength(controls.distanceFromPivot);
+							controls.target.add(raycaster.ray.origin);
+
+						}
+						
+						controls.setTargetPosition(controls.target);
+
+					} else {
+
+						// Don't turn on trackball graphics for dolly
+						trackballWidget.visible = true;
+						updateCameraSpinUI();
+
 					}
 
 				} );
 
-				cameraSpinControl.addEventListener( 'change', function ( event ) {
+				controls.addEventListener( 'change', function ( event ) {
 
 					updateCameraSpinUI();
 
 				} );
 				
-				cameraSpinControl.addEventListener( 'end', function ( event ) {
+				controls.addEventListener( 'end', function ( event ) {
 
-					trackballWidget.visible = false;
+					if (event.state !== controls.STATE.DOLLY) {
+						
+						trackballWidget.visible = false;
+						
+					}
 
 				} );
 				
@@ -172,7 +195,7 @@
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();        
 				renderer.setSize( window.innerWidth, window.innerHeight );
-        		cameraSpinControl.onWindowResize();
+        		controls.onWindowResize();
 				render();
 
 			}
@@ -180,7 +203,7 @@
 			function animate(timeStamp) {
 
 				requestAnimationFrame( animate );
-        		cameraSpinControl.update();
+        		controls.update();
 				render();
 				
 			}
