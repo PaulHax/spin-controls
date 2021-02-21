@@ -68,7 +68,7 @@
 				var torusKnot = new THREE.Mesh( geometry, material );
 				scene.add( torusKnot );
 
-				var clickable = [ torusKnot ];
+				var raycastable = [ torusKnot ];
 		
 				// Transparent sphere to represent the CameraSpinControls trackball
 				trackballWidget = new THREE.Group();
@@ -96,7 +96,7 @@
 				function onPointerDown() {
 
 					raycaster.setFromCamera( pointerPos, camera );
-					var intersects = raycaster.intersectObjects( clickable );					
+					var intersects = raycaster.intersectObjects( raycastable );					
 
 					if(intersects.length) {
 
@@ -143,21 +143,20 @@
 						// Clamp min/max zoom distance by placing trackball at intersection point.
 						// Only useful if CameraSpinControls.minDistance/maxDistance set.
 						raycaster.setFromCamera( pointerPos, camera );
-						var intersects = raycaster.intersectObjects( clickable );
+						var intersects = raycaster.intersectObjects( raycastable );
 
 						if(intersects.length) {
 
-							controls.target.copy(intersects[0].point);
+							controls.setTargetPosition(intersects[0].point);
 
 						} else {
 
 							controls.target.copy(raycaster.ray.direction);
 							controls.target.setLength(controls.distanceFromPivot);
 							controls.target.add(raycaster.ray.origin);
+							controls.setTargetPosition(controls.target);
 
 						}
-						
-						controls.setTargetPosition(controls.target);
 
 					} else {
 
@@ -188,7 +187,6 @@
 				window.addEventListener( 'resize', onWindowResize, false );
 
       		}
-      
       
 			function onWindowResize() {
 
