@@ -134,9 +134,10 @@ CameraSpinControls = function ( camera, domElement ) {
 	};
 
 	this.setTargetPosition = function (positionVector) {
-
+		
 		scope.target.copy(positionVector);
 		this.movedTarget();
+
 	}
 
 	// this method is exposed, but perhaps it would be better if we can make it private...
@@ -154,7 +155,6 @@ CameraSpinControls = function ( camera, domElement ) {
 			scope.target.add( panOffset );
 			scope.targetObj.updateWorldMatrix(true, false);
 			
-
 			if (scope.isTargetOffCenter) {
 
 				v.setFromMatrixPosition(scope.trackballToObject);
