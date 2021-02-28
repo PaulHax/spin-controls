@@ -107,7 +107,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			// q1.setFromUnitVectors(p0, p1);
 			
 			q0.set(p0.x, p0.y, p0.z, 1.0);
-			angleSpeed = q1.angleTo(q0) / timeDelta;			
+			angleSpeed = q1.angleTo(q0) / timeDelta;
 
 			// Just set velocity because we are touching trackball without sliding
 			_angularVelocity.crossVectors( p0, p1);
@@ -348,7 +348,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}() );
 	
-	this.onPointerDown = function( pointerScreenX, pointerScreenY ) {
+	this.onPointerDown = function( pointerScreenX, pointerScreenY, time ) {
 
 		var pointerNdc = getPointerInNdc( pointerScreenX, pointerScreenY );
 
@@ -366,7 +366,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		}
 
 		_pointerScreen.set( pointerScreenX, pointerScreenY );
-		_lastPointerEventTime = performance.now();
+		_lastPointerEventTime = time;
 		_angularVelocity.set( 0, 0, 0 );
 		_isPointerDown = true;
 
@@ -386,11 +386,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			polarVel = new THREE.Vector3(),
 			lastPointOnSphere = new THREE.Vector3();
 	
-		return function onPointerMove( pointerScreenX, pointerScreenY ) {
+		return function onPointerMove( pointerScreenX, pointerScreenY, time ) {
 
-			var currentTime = performance.now();
-			var deltaTime = ( currentTime - _lastPointerEventTime ) / 1000.0;
-			_lastPointerEventTime = currentTime;
+			var deltaTime = ( time - _lastPointerEventTime ) / 1000.0;
+			_lastPointerEventTime = time;
 			
 			_pointOnSphereOld.copy( _pointOnSphere );
 			
@@ -398,8 +397,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			objToPointer.copy( getObjectToPointer( pointerNdc ) )
 
-			if ( objToPointer.lengthSq() < 1 || !this.relativelySpinOffTrackball) {
-				// Pointer is within radius of object trackball circle on screen
+			if ( objToPointer.lengthSq() < 1 || !this.relativelySpinOffTrackball ) {
+				// Pointer is within radius of trackball circle on screen
 
 				_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
 
@@ -415,9 +414,9 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				} 
 				else { 
 
-					// Moved on sphere 
+					// Moved onto sphere 
 					_angularVelocity.set( 0, 0, 0 );
-					_lastVelTime = currentTime;
+					_lastVelTime = time;
 
 				}
 
@@ -429,7 +428,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 					// Moved off sphere 
 					_angularVelocity.set( 0, 0, 0 );
-					_lastVelTime = currentTime;
+					_lastVelTime = time;
 					
 				} 
 				else { 
@@ -516,7 +515,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		if ( _this.enabled === false || event.button !== 0 ) return;
 		
-		_this.onPointerDown( event.pageX, event.pageY );
+		_this.onPointerDown( event.pageX, event.pageY, event.timeStamp );
 
 		document.addEventListener( 'mousemove', onMouseMove, false );
 		document.addEventListener( 'mouseup', onMouseUp, false );
@@ -531,7 +530,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		event.preventDefault();
 
-		_this.onPointerMove( event.pageX, event.pageY );
+		_this.onPointerMove( event.pageX, event.pageY, event.timeStamp );
 
 	}
 
@@ -560,7 +559,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	// Function broken out for CameraSpinControls to use in touch end if going from 2 fingers to 1
 	this.handleTouchStart = function( event ) {
 		
-		_this.onPointerDown( event.pageX, event.pageY );
+		_this.onPointerDown( event.pageX, event.pageY, event.timeStamp );
 		_this.applyVelocity();  //TODO Should not be needed here
 
 	}
@@ -582,7 +581,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		event.preventDefault();
 		event.stopImmediatePropagation(); // Prevent other controls from working.
 
-		_this.onPointerMove( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
+		_this.onPointerMove( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY, event.timeStamp );
 
 	}
 
@@ -593,7 +592,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		if( !_this.hasPointerMovedThisFrame ) {
 			
 			// To support subtle touches do big dampening, not zeroing it
-			var deltaTime = ( performance.now() - _lastPointerEventTime ) / 1000.0;
+			var deltaTime = ( event.timeStamp - _lastPointerEventTime ) / 1000.0;
 			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) 
 		
 		}
