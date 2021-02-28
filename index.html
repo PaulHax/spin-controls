@@ -9,18 +9,16 @@
 				margin: 0px;
 				background-color: #000000;
 				color: #fff;
-				font-family:Monospace;
-				text-align: center;
-				font-size: 15px;
-				line-height: 30px;
+				font-family: Monospace;
+				font-size: large;
 				overflow: hidden;
 			}
 			
 			#info {
 				position: absolute;
-				top: 0px; width: 100%;
-				padding: 15px;
-				z-index:100;
+				top: 0px;
+				left: 10px;
+				z-index: 1;
 				box-sizing: border-box;
 				pointer-events: none;
 			}
@@ -28,30 +26,130 @@
 			.clickable {
 				pointer-events: auto;
 			}
+
+			.menuTitle {
+				margin: 1px 40px;
+			}
+
+			#settings {
+				transition: opacity 0.40s ease;
+			}
+
+			/*
+			* Just a quick hamburger from https://codepen.io/erikterwan/pen/EVzeRP
+			*/
+			#menuToggle
+			{
+				position: absolute;
+				top: 10px;
+				
+				z-index: 1;
+				
+				-webkit-user-select: none;
+				user-select: none;
+			}
+			#menuToggle input
+			{
+				display: block;
+				width: 40px;
+				height: 32px;
+				position: absolute;
+				top: -7px;
+				left: -5px;
+				
+				cursor: pointer;
+				pointer-events: auto;
+				
+				opacity: 0; /* hide this */
+				z-index: 2; /* and place it over the hamburger */
+				
+				-webkit-touch-callout: none;
+			}
+
+			#menuToggle span
+			{
+				display: block;
+				width: 33px;
+				height: 4px;
+				margin-bottom: 5px;
+				position: relative;
+				
+				background: #ffffff;
+				border-radius: 3px;
+				
+				z-index: 1;
+				
+				transform-origin: 4px 0px;
+				
+				transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+							opacity 0.55s ease;
+			}
+
+			#menuToggle span:first-child
+			{
+				transform-origin: 0% 0%;
+			}
+			#menuToggle span:nth-child(4)
+			{
+				transform-origin: 0% 100%;
+			}
+			#menuToggle input:checked ~ span:nth-child(2)
+			{
+				opacity: 1;
+				transform: rotate(45deg) translate(-2px, -1px);
+			}
+			#menuToggle input:checked ~ span:nth-child(3)
+			{
+				opacity: 0;
+				transform: rotate(0deg) scale(0.2, 0.2);
+			}
+			#menuToggle input:checked ~ span:nth-child(4)
+			{
+				transform: rotate(-45deg) translate(0, -1px);
+			}
+
+			#menuToggle input:checked ~ #settings
+			{
+				display: none;
+			}
 			
 		</style>
 	</head>
 	<body>
-
 		<div id="info">
-			<p><strong>Spin Controls</strong> Left click or touch spheres to rotate them as if touching a trackball.</p>
-			<p><strong>Camera</strong> | Orbit: Left click / 1 finger | Pan: Right click / 2 fingers | Zoom: Mouse wheel / pinch</p>
-			<p>
-				<label for="mapping">Pointer to trackball sphere mapping method: 
-					<select id="spin-mapping" class="clickable">
-						<option value="raycast">Raycast</option>
-						<option value="holroyd">Holroyd</option>
-						<option value="shoemake">Shoemake</option>
-						<option value="azimuthal">Azimuthal</option>
-					</select>
-				</label>
-				<label for="relatively-spin-off-trackball">Relatively spin off trackball:
-					<input type="checkbox" id="relatively-spin-off-trackball" class="clickable" checked/>
-				</label>
-				<label for="pointer-pivot">Camera trackball at pointer:
-					<input type="checkbox" id="pointer-pivot" class="clickable" checked/>
-				</label>
-			</p>
+			<div id="menuToggle">
+				<input id="menuCheckbox" type="checkbox" checked onclick="toggleSettings()"/>
+				<span></span>
+				<span></span>
+				<span></span>
+			</div>
+			<h1 class="menuTitle">SpinControls</h1>
+			<div id="settings">
+				<p>
+					Left click or touch spheres to rotate them as if touching a trackball.
+				</p>
+				<p><strong>Camera</strong> | Orbit: Left click / 1 finger | Pan: Right click / 2 fingers | Zoom: Mouse wheel / pinch</p>
+				<p>
+					<label for="mapping">Pointer to trackball sphere mapping method: 
+						<select id="spin-mapping" class="clickable">
+							<option value="raycast">Raycast</option>
+							<option value="holroyd">Holroyd</option>
+							<option value="shoemake">Shoemake</option>
+							<option value="azimuthal">Azimuthal</option>
+						</select>
+					</label>
+				</p>
+				<p>
+					<label for="relatively-spin-off-trackball">Relatively spin when pointer off trackball:
+						<input type="checkbox" id="relatively-spin-off-trackball" class="clickable" checked/>
+					</label>
+				</p>
+				<p>
+					<label for="pointer-pivot">Camera trackball at pointer:
+						<input type="checkbox" id="pointer-pivot" class="clickable" checked/>
+					</label>
+				</p>
+			</div>
 		</div>
 
 		<!-- <script src="three.min.js"></script> -->
@@ -139,6 +237,8 @@
 				var torusKnot = new THREE.Mesh( geometry, material );
 				torusKnot.position.set(200, 0, 0);
 				scene.add( torusKnot );
+
+				var cameraPivotSurfaces = [ torusKnot ];
         
 				// Camera control UI
 				trackballWidget = new THREE.Group();
@@ -154,8 +254,6 @@
 				
 				controls = new CameraSpinControls( camera, renderer.domElement );
 				controls.isTargetOffCenter = true;
-				
-				var cameraPivotSurfaces = [ torusKnot ];
 
 				var raycaster = new THREE.Raycaster();
 				var pointerPos = new THREE.Vector2();
@@ -500,6 +598,15 @@
 
 				});
 				
+			}
+
+			function toggleSettings() {
+				var settings = document.getElementById('settings');
+				if(document.getElementById('menuCheckbox').checked) {
+					settings.style.opacity = 1;
+				} else {
+					settings.style.opacity = 0;
+				}
 			}
 
 		</script>
