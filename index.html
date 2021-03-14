@@ -216,6 +216,7 @@
 				
 				spinControlSmall = new SpinControls( smallSpinner, radius, camera, renderer.domElement );
 				spinControlSmall.spinAxisConstraint = spinAxis;
+				spinControlSmall.dampingFactor = 1.5;
         
 				var radius = 200;
 				bigSpinner = new THREE.Group();
@@ -582,9 +583,10 @@
 
 				}
 				
-				spinners.forEach((spinner) => {
+				spinners.forEach((spinner) => 
+				{
 
-					spinner.rotateAlgorithm = newMode;
+					spinner.setPointerToSphereMapping(newMode);
 
 				});
 				

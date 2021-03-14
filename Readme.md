@@ -9,10 +9,10 @@ Trackball style control for three.js Object3Ds and Cameras. Featuring pointer to
 ## Features
 
 - Accurate pointer to trackball feel by perspective raycast
-- Continuous relative rotation when pointer is beyond trackball
+- Rotation continues relativly when pointer is beyond trackball
 - Camera or object control
 - Touchscreen support
-- Camera pivot at application defined point, like model intersection
+- Camera pivot about a non-screen center point, like a pointer to model intersection
 - Momentum for movement after releasing pointer
 - Raycast, Shoemake, Holroyd, and Fujii's pointer to trackball mapping methods
 - Axis of spin constraint option

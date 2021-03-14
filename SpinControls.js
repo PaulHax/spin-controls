@@ -29,10 +29,19 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
 	// Holyroyd smooths between sphere and hyperbola to avoid jump at sphere edge.
 	// Azimuthal from Yasuhiro Fujii has unlimited rotation behond the sphere edge.
-	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 0, HOLROYD: 1, AZIMUTHAL: 2, RAYCAST: 3};
-	this.rotateAlgorithm = this.POINTER_SPHERE_MAPPING.RAYCAST;
+	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 'shoemake', HOLROYD: 'holroyd', AZIMUTHAL: 'azimuthal', RAYCAST: 'raycast'};
+
+	// Base this on angle change around sphere edge?
+	this.offTrackBallVelocityGainMap = {
+		'shoemake': 20,
+		'holroyd': 8,
+		'azimuthal': 8,
+		'raycast': 20
+	};
 
 	// Internals
+	this._pointerMapping = this.POINTER_SPHERE_MAPPING.RAYCAST;
+	this._offTrackBallVelocityGain = this.offTrackBallVelocityGainMap[this._pointerMapping]
 
 	this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
@@ -48,7 +57,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_isPointerDown = false,
 
-		_OFF_TRACKBALL_VELOCITY_GAIN = 8.0, // ToDo: Base this on angle change around sphere edge?
+		
 		_EPS = 0.000001;
 
 	var changeEvent = { type: 'change' };
@@ -283,7 +292,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			cameraRot.setFromRotationMatrix( _this.camera.matrixWorld );
 
-			if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.RAYCAST ) {
+			if ( _this._pointerMapping === _this.POINTER_SPHERE_MAPPING.RAYCAST ) {
 
 				if ( objToPointer.lengthSq() < 1 ) {
 
@@ -310,7 +319,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			}
 			// Pointer mapping code below derived from Yasuhiro Fujii's https://mimosa-pudica.net/3d-rotation/
-			else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
+			else if ( _this._pointerMapping === _this.POINTER_SPHERE_MAPPING.HOLROYD ) {
 
 				var t = objToPointer.lengthSq();
 				if (t < 0.5) {
@@ -321,7 +330,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				}
 				point.applyQuaternion( cameraRot ); // Rotate from looking down z axis to camera direction
 
-			} else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
+			} else if ( _this._pointerMapping === _this.POINTER_SPHERE_MAPPING.SHOEMAKE ) {
 				
 				var t = objToPointer.lengthSq();
 				if (t < 1.0) {
@@ -332,7 +341,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				}
 				point.applyQuaternion( cameraRot );
 
-			} else if ( _this.rotateAlgorithm === _this.POINTER_SPHERE_MAPPING.AZIMUTHAL ) {
+			} else if ( _this._pointerMapping === _this.POINTER_SPHERE_MAPPING.AZIMUTHAL ) {
 				
 				var t = ( Math.PI / 2.0 ) * objToPointer.length();
 				var sined = t < Number.EPSILON ? 1.0 : Math.sin( t ) / t;
@@ -372,7 +381,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}
 
-		// Finds point on sphere in world coordinate space
+	// Finds point on sphere in world coordinate space
 	this.onPointerMove = ( function () {
 
 		var pointerNdc = new THREE.Vector3(),
@@ -399,6 +408,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 			if ( objToPointer.lengthSq() < 1 || !this.relativelySpinOffTrackball ) {
 				// Pointer is within radius of trackball circle on screen
+				// or relative rotation off trackball disabled
 
 				_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
 
@@ -423,6 +433,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				_wasLastPointerEventOnSphere = true;
 			
 			} else {
+				// Pointer off trackball
 
 				if ( _wasLastPointerEventOnSphere ) {
 
@@ -431,8 +442,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 					_lastVelTime = time;
 					
 				} 
-				else { 
-
+				else {
 					// Still off sphere
 					
 					if( deltaTime > 0 ) { // Sometimes zero due to timer precision?		
@@ -448,24 +458,23 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 						objectPos.setFromMatrixPosition( _this.object.matrixWorld );
 						objectToCamera.copy( _this.camera.position ).sub( objectPos );
 					
-						var ndcPerBall = ( 1 / ( _this.camera.fov / 2 ) ) // NDC per field of view degree
-							/ ( Math.atan( _this.trackballRadius / objectToCamera.length() ) ); // Ball angle size
-
-						objToPointer.normalize();
-
-						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcPerBall / deltaTime * _OFF_TRACKBALL_VELOCITY_GAIN;
-
-						lastPointOnSphere.copy( getPointerInSphere( lastNdc ) );
-
 						_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
 
+						// Radius angular velocity direction
 						_angularVelocity.crossVectors( objectToCamera, _pointOnSphere );
-						_angularVelocity.setLength( deltaRadius ); // Just set it because we are touching trackball without sliding
+						
+						// Find radius velocity magnatude
+						var ndcPerBall = ( 2 / _this.camera.fov ) // NDC per field of view degree
+							/ Math.atan( _this.trackballRadius / objectToCamera.length() ); // Ball field of view angle size
+						objToPointer.normalize();						
+						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcPerBall / deltaTime;
+						_angularVelocity.setLength( deltaRadius * this._offTrackBallVelocityGain ); // Just set it because we are touching trackball without sliding
 
 						// Find polar angle change
+						lastPointOnSphere.copy( getPointerInSphere( lastNdc ) );
 						angle = lastPointOnSphere.angleTo( _pointOnSphere ) / deltaTime;
 						polarVel.crossVectors( lastPointOnSphere, _pointOnSphere );
-						polarVel.setLength( angle ); 
+						polarVel.setLength( angle );
 
 						_angularVelocity.add( polarVel );
 						
@@ -485,6 +494,12 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		}
 	}() );
+
+	// call like this: spinControl.setPointerToSphereMapping(spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE)
+	this.setPointerToSphereMapping = function ( mappingTechnique ) {
+		this._pointerMapping = mappingTechnique;
+		this._offTrackBallVelocityGain = this.offTrackBallVelocityGainMap[this._pointerMapping]
+	}
 
 	// listeners
 
