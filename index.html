@@ -126,11 +126,11 @@
 			<h1 class="menuTitle">SpinControls</h1>
 			<div id="settings">
 				<p>
-					Left click or touch spheres to rotate them as if touching a trackball.
+					Click spheres to rotate.  Click colorful knot to rotate about intersection point.
 				</p>
 				<p><strong>Camera</strong> | Orbit: Left click / 1 finger | Pan: Right click / 2 fingers | Zoom: Mouse wheel / pinch</p>
 				<p>
-					<label for="mapping">Pointer to trackball sphere mapping method: 
+					<label for="mapping">Pointer to trackball mapping method: 
 						<select id="spin-mapping" class="clickable">
 							<option value="raycast">Raycast</option>
 							<option value="holroyd">Holroyd</option>
@@ -216,7 +216,8 @@
 				
 				spinControlSmall = new SpinControls( smallSpinner, radius, camera, renderer.domElement );
 				spinControlSmall.spinAxisConstraint = spinAxis;
-				spinControlSmall.dampingFactor = 1.5;
+				spinControlSmall.dampingFactor = 1.5; // Decreases to keep spinning longer after pointer release. Default is 1.0
+				spinControlSmall.rotateSensitivity = .8; // Increase for faster spin. Multiplies pointer movement to ball rotation.
         
 				var radius = 200;
 				bigSpinner = new THREE.Group();

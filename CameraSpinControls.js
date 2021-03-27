@@ -229,7 +229,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	this.ajustTrackballRadius = function () {
 	  
-		const v = new THREE.Vector3();
+		var v = new THREE.Vector3();
 		var cameraToTrackball = new THREE.Matrix4();
 
 		return function ajustTrackballRadius() {
@@ -274,8 +274,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		window.removeEventListener( 'keydown', onKeyDown, false );
 
-		//scope.dispatchEvent( { type: 'dispose' } ); // should this be added here?
-
 	};
 
 	//
@@ -288,13 +286,12 @@ CameraSpinControls = function ( camera, domElement ) {
 	var startEvent = { type: 'start' };
 	var endEvent = { type: 'end' };
 
-	var STATE = { NONE: - 1, ROTATE: 0, DOLLY: 1, PAN: 2, TOUCH_ROTATE: 3, TOUCH_DOLLY_PAN: 4 };
+	var STATE = { NONE: 0, ROTATE: 1, DOLLY: 2, PAN: 3, TOUCH_DOLLY_PAN: 4 };
 	scope.STATE = STATE; // to compare against startEvent.state
 
 	var state = STATE.NONE;
 
 	var EPS = 0.000001;
-
 
 	var scale = 1;
 	var panOffset = new THREE.Vector3();
@@ -307,6 +304,8 @@ CameraSpinControls = function ( camera, domElement ) {
 	var dollyStart = new THREE.Vector2();
 	var dollyEnd = new THREE.Vector2();
 	var dollyDelta = new THREE.Vector2();
+
+	var rollToCamera = new THREE.Quaternion();
 
 	function getZoomScale() {
 
@@ -443,8 +442,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function handleMouseDownDolly( event ) {
 
-		//console.log( 'handleMouseDownDolly' );
-
 		dollyStart.set( event.clientX, event.clientY );
 
 	}
@@ -456,8 +453,6 @@ CameraSpinControls = function ( camera, domElement ) {
 	}
 
 	function handleMouseMoveDolly( event ) {
-
-		//console.log( 'handleMouseMoveDolly' );
 
 		dollyEnd.set( event.clientX, event.clientY );
 
@@ -481,8 +476,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function handleMouseMovePan( event ) {
 
-		//console.log( 'handleMouseMovePan' );
-
 		panEnd.set( event.clientX, event.clientY );
 
 		panDelta.subVectors( panEnd, panStart ).multiplyScalar( scope.panSpeed );
@@ -495,15 +488,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	}
 
-	function handleMouseUp( event ) {
-
-		// console.log( 'handleMouseUp' );
-
-	}
-
 	function handleMouseWheel( event ) {
-
-		// console.log( 'handleMouseWheel' );
 
 		if ( event.deltaY < 0 ) {
 
@@ -520,8 +505,6 @@ CameraSpinControls = function ( camera, domElement ) {
 	}
 
 	function handleKeyDown( event ) {
-
-		// console.log( 'handleKeyDown' );
 
 		var needsUpdate = false;
 
@@ -558,12 +541,47 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		}
 
+	}
+
+	function moveTargetToFingersCenter( event ) {
+
+		// Move trackball to fingers centroid
+		var x = 0.5 * ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX );
+		var y = 0.5 * ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY );
+
+		var fingerCenter = scope.spinControl.getPointerInNdc(x, y);
+		
+		scope.target.set( fingerCenter.x, fingerCenter.y, .5 );
+		
+		// For unproject, need to update camera.matrixWorldInverse if camera moved before renderer.render
+		scope.object.matrixWorldInverse.copy( scope.object.matrixWorld ).invert();
+
+		scope.target.unproject( scope.object ); // target in world space now
+		scope.target.sub( scope.object.position ).normalize(); // Subtract to put around origin
+		scope.target.setLength( scope.distanceFromPivot );
+		scope.target.add( scope.object.position );
+		scope.movedTarget();
 
 	}
 
-	function handleTouchStartDollyPan( event ) {
+	function handleTouchStartDollyPanRoll( event ) {
+
+		if ( scope.enableRotate ) {
+
+			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+			var theta = Math.atan2(dy, dx);
+			
+			// Rotation about z axis, inverted
+			rollToCamera.set(0, 0, -Math.sin(theta / 2), Math.cos(theta / 2));
+
+			rollToCamera.premultiply(scope.object.quaternion);
+
+		}
 
 		if ( scope.enableZoom ) {
+
+			moveTargetToFingersCenter( event );
 
 			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
 			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
@@ -585,11 +603,26 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	}
 
-	function handleTouchMoveDollyPan( event ) {
+	function handleTouchMoveDollyPanRoll( event ) {
 
 		event.stopImmediatePropagation(); //Prevent other controls from working.
 
+		if ( scope.enableRotate ) {
+
+			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+			var theta = Math.atan2(dy, dx);
+			
+			// Rotation about z axis
+			scope.object.quaternion.set(0, 0, Math.sin(theta / 2), Math.cos(theta / 2));
+
+			scope.object.quaternion.premultiply(rollToCamera);
+			
+		}
+
 		if ( scope.enableZoom ) {
+			
+			moveTargetToFingersCenter( event );
 
 			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
 			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
@@ -734,8 +767,6 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		if ( scope.enabled === false ) return;
 
-		handleMouseUp( event );
-
 		document.removeEventListener( 'mousemove', onMouseMove, false );
 		document.removeEventListener( 'mouseup', onMouseUp, false );
 
@@ -748,7 +779,10 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function onMouseWheel( event ) {
 
-		if ( scope.enabled === false || scope.enableZoom === false || ( state !== STATE.NONE && state !== STATE.ROTATE ) ) return;
+		if ( scope.enabled === false 
+			|| scope.enableZoom === false 
+			|| ( state !== STATE.NONE && state !== STATE.ROTATE ) ) 
+			return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -783,15 +817,17 @@ CameraSpinControls = function ( camera, domElement ) {
 
 				if ( scope.enableRotate === false ) return;
 
-				state = STATE.TOUCH_ROTATE;
+				state = STATE.ROTATE;
 
 				break;
 
 			case 2:	// two-fingered touch: dolly-pan
 
-				if ( scope.enableZoom === false && scope.enablePan === false ) return;
+				if ( scope.enableZoom === false 
+					&& scope.enablePan === false 
+					&& scope.enableRotate === false) return;
 
-				handleTouchStartDollyPan( event );
+				handleTouchStartDollyPanRoll( event );
 
 				state = STATE.TOUCH_DOLLY_PAN;
 
@@ -823,19 +859,17 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		switch ( event.touches.length ) {
 
-			case 1: // one-fingered touch: rotate
+			// case 1: // one-fingered touch: rotate
 
-				if ( scope.enableRotate === false ) return;
-				if ( state !== STATE.TOUCH_ROTATE ) return; // is this needed?
+			// 	if ( scope.enableRotate === false ) return;
 
-				break;
+			// 	break;
 
 			case 2: // two-fingered touch: dolly-pan
 
 				if ( scope.enableZoom === false && scope.enablePan === false ) return;
-				if ( state !== STATE.TOUCH_DOLLY_PAN ) return; // is this needed?
 
-				handleTouchMoveDollyPan( event );
+				handleTouchMoveDollyPanRoll( event );
 
 				break;
 
@@ -853,7 +887,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		if( event.touches.length === 1 ) {
 			
-			state = STATE.TOUCH_ROTATE;
+			state = STATE.ROTATE;
 			scope.spinControl.enabled = true;
 			scope.spinControl.handleTouchStart( event );
 
