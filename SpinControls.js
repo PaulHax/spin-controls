@@ -232,6 +232,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	}() );
 
+	this.getPointerInNdc = getPointerInNdc; // Handy for CameraSpinControls
+
 	// Find vector from object to pointer in screen space
 	var getObjectToPointer = ( function () { 
 
@@ -248,7 +250,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			_this.camera.updateWorldMatrix( true, false );
 			// Need to update camera.matrixWorldInverse if camera moved before renderer.render
 			_this.camera.matrixWorldInverse.copy( _this.camera.matrixWorld ).invert();
-			objPos.project( _this.camera ); // position in ndc/screen			
+			objPos.project( _this.camera ); // position in ndc/screen
 			objToPointer.set( objPos.x, objPos.y ); 
 			objToPointer.subVectors( pointerNdcScreen, objToPointer ); 
 
