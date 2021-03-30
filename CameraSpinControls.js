@@ -28,14 +28,20 @@ CameraSpinControls = function ( camera, domElement ) {
 	// Set to false to disable this control
 	this.enabled = true;
 
+	this.distanceFromPivot = 500;
+
 	this.object = camera;
 	// "target" sets the location of focus, where the object orbits around
 	this.targetObj = new THREE.Object3D();
-	this.targetObj.lookAt(camera.position);
 	this.target = this.targetObj.position;
-	this.distanceFromPivot = this.target.distanceTo( camera.position );
+	
+	if ( camera.position.length() < EPS ) {
+		camera.position.set(0, 0, 1);
+	}	
 
-	this.isTargetOffCenter = false;
+	this.targetObj.lookAt(camera.position);
+
+	this.isTargetOffCenter = true;
 	this.trackballToObject = new THREE.Matrix4();
 
 	this.targetObj.updateWorldMatrix(true, false);
@@ -43,10 +49,9 @@ CameraSpinControls = function ( camera, domElement ) {
 	transformTo(this.trackballToObject, this.targetObj.matrixWorld, this.object.matrixWorld);
 
 	// How far you can dolly in and out ( PerspectiveCamera only )
-	// If isTargetOffCenter === true, will cause jumps if target is closer or further than limits
+	// Will cause jumps if target is moved closer or further than limits
 	this.minDistance = 0;
 	this.maxDistance = Infinity;
-	// TODO If rotate or pan with intersection, ignore rotation distance clamps
 
 	// How far you can zoom in and out ( OrthographicCamera only )
 	this.minZoom = 0;
@@ -165,7 +170,6 @@ CameraSpinControls = function ( camera, domElement ) {
 				scope.trackballToObject.setPosition(v);
 				scope.object.matrix.copy( scope.targetObj.matrixWorld );
 				scope.object.matrix.multiply(scope.trackballToObject);
-
 
 			} else {
 
@@ -891,7 +895,8 @@ CameraSpinControls = function ( camera, domElement ) {
 			scope.spinControl.enabled = true;
 			scope.spinControl.handleTouchStart( event );
 
-		} else {
+		} else if( event.touches.length === 0 ) {
+		// } else {
 			
 			state = STATE.NONE;
 			endEvent.state = state;
@@ -934,19 +939,6 @@ CameraSpinControls = function ( camera, domElement ) {
     	scope.dispatchEvent( changeEvent );
 
   	} );
-  
-	scope.spinControl.addEventListener( 'start', function ( event ) {
-
-		scope.dispatchEvent( startEvent );
-
-	} );
-  
-	scope.spinControl.addEventListener( 'end', function ( event ) {
-
-		endEvent.state = state;
-		scope.dispatchEvent( endEvent );
-
-	} );
 	
 	// Starts touch interfaces off right
 	this.ajustTrackballRadius();

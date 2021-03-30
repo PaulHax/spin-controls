@@ -592,7 +592,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	}
 
 	function onTouchMove( event ) {
-		
+
 		if ( _this.enabled === false || !_isPointerDown ) return;
 
 		event.preventDefault();
@@ -604,7 +604,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	function onTouchEnd( event ) {
 
-		if( _this.enabled === false || !_isPointerDown ) return;
+		if( _this.enabled === false ) return;
 
 		if( !_this.hasPointerMovedThisFrame ) {
 			
@@ -615,6 +615,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 		}
 
 		_this.handlePointerUp( event );
+
+		// override handlePointerUp if finger still down
+		if( event.touches.length > 0 ) {
+			_isPointerDown = true;
+		}
 
 	}
 

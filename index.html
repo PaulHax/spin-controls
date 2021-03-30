@@ -188,7 +188,7 @@
 				window.addEventListener( 'wheel', onMouseWheel, true );
 				window.addEventListener( 'wheel', onMouseWheelOff, false );
 				
-				renderer.domElement.addEventListener( 'touchstart', onTouchStart, false );
+				renderer.domElement.addEventListener( 'touchstart', onTouchStart, true ); // catch down to enable camera control
 				window.addEventListener( 'touchend', onTouchEnd, false ); // get event last, so false on capture
 
 				// Spheres to spin
