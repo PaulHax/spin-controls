@@ -54,8 +54,9 @@
 
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
 
+				camera.position.set(0, 0, 500);
+
 				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-				cameraSpinControl.distanceFromPivot = 500;
 
 				// Uncomment for third person view of CameraSpinControls 
 				// And comment out CameraSpinControls above 
