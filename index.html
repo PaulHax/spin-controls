@@ -255,7 +255,9 @@
 				trackballWidget.renderOrder = 1; // Don't draw to early, thus obscuring other transparent objects        
 				
 				controls = new CameraSpinControls( camera, renderer.domElement );
-				controls.isTargetOffCenter = true;
+				// Moving trackball position to mesh intersection points
+				// so disable controls moving trackball on rotation start
+				controls.startTrackballScreenCenter = false; 
 
 				var raycaster = new THREE.Raycaster();
 				var pointerPos = new THREE.Vector2();
@@ -271,25 +273,22 @@
 
 				function onPointerDown() {
 
-					if (controls.isTargetOffCenter) {
+					raycaster.setFromCamera( pointerPos, camera );
+					var intersects = raycaster.intersectObjects( cameraPivotSurfaces );
 
-						raycaster.setFromCamera( pointerPos, camera );
-						var intersects = raycaster.intersectObjects( cameraPivotSurfaces );					
+					if(intersects.length) {
 
-						if(intersects.length) {
+						controls.setTargetPosition(intersects[0].point);
 
-							controls.setTargetPosition(intersects[0].point);
+					} else {
 
-						} else {
-
-							// Move trackball to center of screen if not clicking on anything.
-							// Comment out to rotate with trackball centered on mouse.
-							controls.target.set(0, 0, -controls.distanceFromPivot);
-							controls.target.applyQuaternion(camera.quaternion);
-							controls.target.add(camera.position);
-							controls.setTargetPosition(controls.target);
-
-						}
+						// Move trackball to center of screen if not clicking on anything.
+						controls.target.setFromMatrixPosition(controls.trackballToObject);
+						var startDistance = controls.target.length();
+						controls.target.set(0, 0, -startDistance);
+						controls.target.applyQuaternion(camera.quaternion);
+						controls.target.add(camera.position);
+						controls.setTargetPosition(controls.target);
 
 					}
 

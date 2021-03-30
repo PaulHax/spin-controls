@@ -28,8 +28,6 @@ CameraSpinControls = function ( camera, domElement ) {
 	// Set to false to disable this control
 	this.enabled = true;
 
-	this.distanceFromPivot = 500;
-
 	this.object = camera;
 	// "target" sets the location of focus, where the object orbits around
 	this.targetObj = new THREE.Object3D();
@@ -41,7 +39,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	this.targetObj.lookAt(camera.position);
 
-	this.isTargetOffCenter = true;
+	this.startTrackballScreenCenter = true;
 	this.trackballToObject = new THREE.Matrix4();
 
 	this.targetObj.updateWorldMatrix(true, false);
@@ -121,22 +119,26 @@ CameraSpinControls = function ( camera, domElement ) {
 	};
 
 	this.movedTarget = function () {
-		scope.targetObj.updateWorldMatrix(true, false);
-		scope.object.updateWorldMatrix(true, false);
-		transformTo(scope.trackballToObject, scope.targetObj.matrixWorld, scope.object.matrixWorld);
-		
-		// restrict radius to be between desired limits
-		var v = new THREE.Vector3();
-		v.setFromMatrixPosition(scope.trackballToObject);
-		v.multiplyScalar(scale);
-		v.clampLength(scope.minDistance, scope.maxDistance);
-		scope.distanceFromPivot = v.length();
-		scope.trackballToObject.setPosition(v);
-		scope.object.matrix.copy( scope.targetObj.matrixWorld );
-		scope.object.matrix.multiply(scope.trackballToObject);
 
-		this.ajustTrackballRadius();
-	};
+		var v = new THREE.Vector3();
+
+		return function movedTarget() {
+
+			scope.targetObj.updateWorldMatrix(true, false);
+			scope.object.updateWorldMatrix(true, false);
+			transformTo(scope.trackballToObject, scope.targetObj.matrixWorld, scope.object.matrixWorld);
+			
+			// restrict radius to be between desired limits
+			v.setFromMatrixPosition(scope.trackballToObject);
+			v.multiplyScalar(scale);
+			v.clampLength(scope.minDistance, scope.maxDistance);
+			scope.trackballToObject.setPosition(v);
+			scope.object.matrix.copy( scope.targetObj.matrixWorld );
+			scope.object.matrix.multiply(scope.trackballToObject);
+
+			this.ajustTrackballRadius();
+		}
+	}();
 
 	this.setTargetPosition = function (positionVector) {
 		
@@ -159,28 +161,14 @@ CameraSpinControls = function ( camera, domElement ) {
 			// move target to panned location
 			scope.target.add( panOffset );
 			scope.targetObj.updateWorldMatrix(true, false);
-			
-			if (scope.isTargetOffCenter) {
 
-				v.setFromMatrixPosition(scope.trackballToObject);
-				v.multiplyScalar(scale);
-				// restrict radius to be between desired limits
-				v.clampLength(scope.minDistance, scope.maxDistance);
-				scope.distanceFromPivot = v.length();
-				scope.trackballToObject.setPosition(v);
-				scope.object.matrix.copy( scope.targetObj.matrixWorld );
-				scope.object.matrix.multiply(scope.trackballToObject);
-
-			} else {
-
-				scope.distanceFromPivot *= scale;
-				// restrict radius to be between desired limits
-				scope.distanceFromPivot = Math.max( scope.minDistance, Math.min( scope.maxDistance, scope.distanceFromPivot ) );
-				scope.trackballToObject.makeTranslation( 0, 0, scope.distanceFromPivot );
-				scope.object.matrix.copy( scope.targetObj.matrixWorld );
-				scope.object.matrix.multiply( scope.trackballToObject );
-
-			}
+			v.setFromMatrixPosition(scope.trackballToObject);
+			v.multiplyScalar(scale);
+			// restrict radius to be between desired limits
+			v.clampLength(scope.minDistance, scope.maxDistance);
+			scope.trackballToObject.setPosition(v);
+			scope.object.matrix.copy( scope.targetObj.matrixWorld );
+			scope.object.matrix.multiply(scope.trackballToObject);
 
 			this.ajustTrackballRadius();
 
@@ -242,18 +230,10 @@ CameraSpinControls = function ( camera, domElement ) {
 
 				var limitingFov = Math.min(scope.object.fov,  scope.object.fov * scope.object.aspect);
 				var distanceToScreenSize = Math.sin( ( limitingFov / 2 ) * Math.PI / 180.0 );
-
-				if (scope.isTargetOffCenter) {
-
-					transformTo(cameraToTrackball, scope.object.matrix, scope.targetObj.matrixWorld);
-					v.setFromMatrixPosition(cameraToTrackball);
-					scope.distanceFromPivot = v.length();
-					scope.spinControl.trackballRadius = .9 * scope.distanceFromPivot * distanceToScreenSize;
-
-				} else {
-					
-					scope.spinControl.trackballRadius = .9 * scope.distanceFromPivot * distanceToScreenSize;
-				}
+				
+				transformTo(cameraToTrackball, scope.object.matrix, scope.targetObj.matrixWorld);
+				v.setFromMatrixPosition(cameraToTrackball);
+				scope.spinControl.trackballRadius = .9 * v.length() * distanceToScreenSize;
 
 			} else {
 
@@ -273,8 +253,8 @@ CameraSpinControls = function ( camera, domElement ) {
 		scope.domElement.removeEventListener( 'touchend', onTouchEnd, false );
 		scope.domElement.removeEventListener( 'touchmove', onTouchMove, false );
 
-		document.removeEventListener( 'mousemove', onMouseMove, false );
-		document.removeEventListener( 'mouseup', onMouseUp, false );
+		document.removeEventListener( 'mousemove', onMouseMove );
+		document.removeEventListener( 'mouseup', onMouseUp );
 
 		window.removeEventListener( 'keydown', onKeyDown, false );
 
@@ -554,6 +534,9 @@ CameraSpinControls = function ( camera, domElement ) {
 		var y = 0.5 * ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY );
 
 		var fingerCenter = scope.spinControl.getPointerInNdc(x, y);
+
+		scope.target.setFromMatrixPosition(scope.trackballToObject);
+		var startDistance = scope.target.length();
 		
 		scope.target.set( fingerCenter.x, fingerCenter.y, .5 );
 		
@@ -562,7 +545,7 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		scope.target.unproject( scope.object ); // target in world space now
 		scope.target.sub( scope.object.position ).normalize(); // Subtract to put around origin
-		scope.target.setLength( scope.distanceFromPivot );
+		scope.target.setLength( startDistance );
 		scope.target.add( scope.object.position );
 		scope.movedTarget();
 
@@ -726,6 +709,9 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		if ( state !== STATE.NONE ) {
 
+			document.addEventListener( 'mousemove', onMouseMove );
+			document.addEventListener( 'mouseup', onMouseUp );
+
 			startEvent.state = state;
 			scope.dispatchEvent( startEvent );
 
@@ -769,10 +755,11 @@ CameraSpinControls = function ( camera, domElement ) {
 
 	function onMouseUp( event ) {
 
+		document.removeEventListener( 'mousemove', onMouseMove );
+		document.removeEventListener( 'mouseup', onMouseUp );
+
 		if ( scope.enabled === false ) return;
 
-		document.removeEventListener( 'mousemove', onMouseMove, false );
-		document.removeEventListener( 'mouseup', onMouseUp, false );
 
 		state = STATE.NONE;
 
@@ -822,6 +809,17 @@ CameraSpinControls = function ( camera, domElement ) {
 				if ( scope.enableRotate === false ) return;
 
 				state = STATE.ROTATE;
+				
+				if ( scope.startTrackballScreenCenter ) {
+
+					scope.target.setFromMatrixPosition(scope.trackballToObject);
+					var startDistance = scope.target.length();
+					scope.target.set(0, 0, -startDistance);
+					scope.target.applyQuaternion(scope.object.quaternion);
+					scope.target.add(scope.object.position);
+					scope.setTargetPosition(scope.target);
+
+				}
 
 				break;
 
@@ -920,8 +918,6 @@ CameraSpinControls = function ( camera, domElement ) {
 	scope.domElement.addEventListener( 'contextmenu', onContextMenu, false );
 
 	scope.domElement.addEventListener( 'mousedown', onMouseDown, false );
-	scope.domElement.addEventListener( 'mousemove', onMouseMove, false );
-	scope.domElement.addEventListener( 'mouseup', onMouseUp, false );
 	scope.domElement.addEventListener( 'wheel', onMouseWheel, false );
 
 	scope.domElement.addEventListener( 'touchstart', onTouchStart, true );
