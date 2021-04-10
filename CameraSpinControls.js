@@ -802,45 +802,40 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		event.preventDefault();
 
-		switch ( event.touches.length ) {
+		if ( event.touches.length === 1 ) {
+			// 1 finger touch: rotate
+			if ( scope.enableRotate === false ) return;
 
-			case 1:	// one-fingered touch: rotate
+			state = STATE.ROTATE;
+			
+			if ( scope.startTrackballScreenCenter ) {
 
-				if ( scope.enableRotate === false ) return;
+				scope.target.setFromMatrixPosition(scope.trackballToObject);
+				var startDistance = scope.target.length();
+				scope.target.set(0, 0, -startDistance);
+				scope.target.applyQuaternion(scope.object.quaternion);
+				scope.target.add(scope.object.position);
+				scope.setTargetPosition(scope.target);
 
-				state = STATE.ROTATE;
-				
-				if ( scope.startTrackballScreenCenter ) {
+			}
 
-					scope.target.setFromMatrixPosition(scope.trackballToObject);
-					var startDistance = scope.target.length();
-					scope.target.set(0, 0, -startDistance);
-					scope.target.applyQuaternion(scope.object.quaternion);
-					scope.target.add(scope.object.position);
-					scope.setTargetPosition(scope.target);
+		} else if ( event.touches.length >= 2 ) {
+			
+			// 2+ finger touch: dolly-pan
+		
+			if ( scope.enableZoom === false 
+				&& scope.enablePan === false 
+				&& scope.enableRotate === false) return;
 
-				}
+			handleTouchStartDollyPanRoll( event );
 
-				break;
+			state = STATE.TOUCH_DOLLY_PAN;
 
-			case 2:	// two-fingered touch: dolly-pan
+			scope.spinControl.cancelSpin();
+			scope.spinControl.enabled = false;
+		} else {
 
-				if ( scope.enableZoom === false 
-					&& scope.enablePan === false 
-					&& scope.enableRotate === false) return;
-
-				handleTouchStartDollyPanRoll( event );
-
-				state = STATE.TOUCH_DOLLY_PAN;
-
-				scope.spinControl.cancelSpin();
-				scope.spinControl.enabled = false;
-
-				break;
-
-			default:
-
-				state = STATE.NONE;
+			state = STATE.NONE;
 
 		}
 
@@ -859,27 +854,19 @@ CameraSpinControls = function ( camera, domElement ) {
 		event.preventDefault();
 		event.stopPropagation();
 
-		switch ( event.touches.length ) {
+		if ( event.touches.length >= 2) {
 
-			// case 1: // one-fingered touch: rotate
+			// dolly-pan
+			if ( scope.enableZoom === false && scope.enablePan === false ) return;
 
-			// 	if ( scope.enableRotate === false ) return;
+			handleTouchMoveDollyPanRoll( event );
 
-			// 	break;
+		} else {
 
-			case 2: // two-fingered touch: dolly-pan
-
-				if ( scope.enableZoom === false && scope.enablePan === false ) return;
-
-				handleTouchMoveDollyPanRoll( event );
-
-				break;
-
-			default:
-
-				state = STATE.NONE;
+			state = STATE.NONE;
 
 		}
+		// 1 finger touch events are consumed by underlying SpinControls
 
 	}
 
@@ -887,30 +874,41 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		if ( scope.enabled === false ) return;
 
-		if( event.touches.length === 1 ) {
-			
-			state = STATE.ROTATE;
-			scope.spinControl.enabled = true;
-			scope.spinControl.handleTouchStart( event );
-
-		} else if( event.touches.length === 0 ) {
-		// } else {
+		if( event.touches.length === 0 ) {
 			
 			state = STATE.NONE;
 			endEvent.state = state;
 			scope.dispatchEvent( endEvent );
 
+		} else if( event.touches.length === 1 ) {
+
+			if ( scope.startTrackballScreenCenter ) {
+
+				// Set pivot point back to center if going from 2+ fingers to 1
+				scope.target.setFromMatrixPosition(scope.trackballToObject);
+				var startDistance = scope.target.length();
+				scope.target.set(0, 0, -startDistance);
+				scope.target.applyQuaternion(scope.object.quaternion);
+				scope.target.add(scope.object.position);
+				scope.setTargetPosition(scope.target);
+
+			}
+			
+			state = STATE.ROTATE;
+			scope.spinControl.enabled = true;
+			scope.spinControl.handleTouchStart( event );
+
+		} else if( event.touches.length >= 2 ) {
+
+			handleTouchStartDollyPanRoll( event );
+
 		}
-		
 
 	}
 
 	function onContextMenu( event ) {
 
 		event.preventDefault();
-		// if ( scope.enabled === false ) return;
-
-		// event.preventDefault();
 
 	}
 
