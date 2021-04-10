@@ -126,7 +126,7 @@
 			<h1 class="menuTitle">SpinControls</h1>
 			<div id="settings">
 				<p>
-					Click spheres to rotate.  Click colorful knot to rotate about intersection point.
+					Click spheres to rotate.  Click box to rotate about intersection point.
 				</p>
 				<p><strong>Camera</strong> | Orbit: Left click / 1 finger | Pan: Right click / 2 fingers | Zoom: Mouse wheel / pinch</p>
 				<p>
@@ -144,11 +144,6 @@
 						<input type="checkbox" id="relatively-spin-off-trackball" class="clickable" checked/>
 					</label>
 				</p>
-				<p>
-					<label for="pointer-pivot">Camera trackball at pointer:
-						<input type="checkbox" id="pointer-pivot" class="clickable" checked/>
-					</label>
-				</p>
 			</div>
 		</div>
 
@@ -160,7 +155,7 @@
 		<script>
 			var camera, scene, renderer, 
 				smallSpinner, bigSpinner, spinControlBig, spinControlSmall, interactives,
-				controls, trackballWidget, isTouched, spinners, mapperSelector, relativelySpinCheckbox;
+				controls, isTouched, spinners, mapperSelector, relativelySpinCheckbox;
 			init();
       		animate( 0 );
       
@@ -177,7 +172,7 @@
 
 				scene = new THREE.Scene();
 
-				scene.add( new THREE.GridHelper( 1000, 4 ) );
+				scene.add( new THREE.GridHelper( 1000, 5 ) );
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, -1 );
@@ -194,7 +189,7 @@
 				// Spheres to spin
 				var radius = 50;
 				smallSpinner = new THREE.Group();
-				smallSpinner.position.set(200, 0, 300);
+				smallSpinner.position.set(200, 0, 200);
 				var spinAxis = new THREE.Vector3( 0, 1, 0 );
 				var material = new THREE.LineBasicMaterial({
 					color: 0xff0000
@@ -221,7 +216,7 @@
         
 				var radius = 200;
 				bigSpinner = new THREE.Group();
-				bigSpinner.position.set(-220, 0, 150);
+				bigSpinner.position.set(-200, 0, 200);
 				var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
 				var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.2 } );
 				bigSpinner.add( new THREE.LineSegments( geometry, lineMaterial ) );
@@ -234,16 +229,16 @@
         		spinControlBig = new SpinControls( bigSpinner, radius, camera, renderer.domElement);
 
 				// Model to raycast the camera trackball pivot on
-				var geometry = new THREE.TorusKnotBufferGeometry( 150, 30, 150, 16 );
+				var geometry = new THREE.BoxGeometry( 600, 100, 600 );
 				var material = new THREE.MeshNormalMaterial();
-				var torusKnot = new THREE.Mesh( geometry, material );
-				torusKnot.position.set(200, 0, 0);
-				scene.add( torusKnot );
+				var pivotMesh = new THREE.Mesh( geometry, material );
+				pivotMesh.position.set(0, 0, -600);
+				scene.add( pivotMesh );
 
-				var cameraPivotSurfaces = [ torusKnot ];
+				var cameraPivotSurfaces = [ pivotMesh ];
         
 				// Camera control UI
-				trackballWidget = new THREE.Group();
+				var trackballWidget = new THREE.Group();
 				trackballWidget.position.set(0, 0, 0);
 				var geometry = new THREE.SphereBufferGeometry( 1, 8, 8 );
 				meshMaterial = new THREE.MeshBasicMaterial( { color: 0xaaaaff, flatShading: true, transparent: true, opacity: 0.2 } );
@@ -318,32 +313,17 @@
 					
 					if (event.state === controls.STATE.DOLLY) {
 
-						if (controls.isTargetOffCenter) {
-
-							// Center trackball on cursor so dolly/zoom moves in mouse direction.
-							// Clamp min/max zoom distance by placing trackball at intersection point.
-							// Only useful if CameraSpinControls.minDistance/maxDistance set.
-							raycaster.setFromCamera( pointerPos, camera );
-							var intersects = raycaster.intersectObjects( cameraPivotSurfaces );
-
-							if(intersects.length) {
-
-								controls.setTargetPosition(intersects[0].point);
-
-							} else {
-
-								controls.target.copy(raycaster.ray.direction);
-								controls.target.setLength(controls.distanceFromPivot);
-								controls.target.add(raycaster.ray.origin);
-								controls.setTargetPosition(controls.target);
-
-							}
-
-						}
+						controls.target.setFromMatrixPosition(controls.trackballToObject);
+						var startDistance = controls.target.length();
+						raycaster.setFromCamera( pointerPos, camera );
+						controls.target.copy(raycaster.ray.direction);
+						controls.target.setLength(startDistance);
+						controls.target.add(raycaster.ray.origin);
+						controls.setTargetPosition(controls.target);
 
 					} else {
 
-						// Don't turn on trackball graphics for dolly
+						// Turn on trackball graphics for input except dolly
 						trackballWidget.visible = true;
 						updateCameraSpinUI();
 
@@ -414,14 +394,7 @@
 				mapperSelector.addEventListener("change", onSpinMapping);
 
 				relativelySpinCheckbox = document.getElementById('relatively-spin-off-trackball');
-				relativelySpinCheckbox.addEventListener("change", onRelativelySpinOffTrackball);	
-				
-				var pointerPivot = document.getElementById('pointer-pivot');
-				pointerPivot.addEventListener("change", function onPointerPivot() {
-
-					controls.isTargetOffCenter = pointerPivot.checked;
-
-				});
+				relativelySpinCheckbox.addEventListener("change", onRelativelySpinOffTrackball);
 				
 				window.addEventListener( 'resize', onWindowResize, false );
 
