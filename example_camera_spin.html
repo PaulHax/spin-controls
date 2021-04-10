@@ -58,17 +58,6 @@
 
 				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
 
-				// Uncomment for third person view of CameraSpinControls 
-				// And comment out CameraSpinControls above 
-				// camera.position.set( 500, 200, 500 );
-				// camera.lookAt( 0, 0, 0 );
-				// var camera2 = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-				// scene.add( camera2 );
-				// const axesHelper = new THREE.AxesHelper( 50 );
-				// camera2.add( axesHelper );
-				// cameraSpinControl = new CameraSpinControls( camera2, renderer.domElement );				
-				// cameraSpinControl.distanceFromPivot = 200;
-
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );

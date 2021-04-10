@@ -22,7 +22,7 @@ Trackball style control for three.js Object3Ds and Cameras. Featuring pointer to
 
 Like other trackball style controls, SpinControls does not limit rotation about a "up" axis.  THREE.OrbitControls and other “turntable” style controls constrain rotation about the up axis, often +Y.  Constraints are good.  But when a model has no natural up direction, or you must view a scene from a “rolled” orientation, use a trackball style control.
 
-Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor with raycasting.  Also, to support unlimited rotation until the cursor hits the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
+Unlike other trackball implementations, SpinControls keeps the trackball point clicked on under the cursor with raycasting.  To support unlimited rotation until the cursor hits the edge of the screen, a relative rotation option kicks in when the cursor is off the trackball.
 
 
 ## Spin Object3D
@@ -48,14 +48,14 @@ var spinControl = new SpinControls( mesh, radius, camera, renderer.domElement );
 ## Spin Camera
 ```javascript
 var camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+camera.position.set( 0, 0, 500 );
 
 var cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
-var cameraSpinControl.distanceFromPivot = 500;
 
 // Call every frame, like before renderer.render( scene, camera ) in function animate()
   cameraSpinControl.update();
 
-// Call when viewport HTML element resizes or moves, probably in 
+// Call onWindowResize when viewport HTML element resizes or moves, probably in 
 // window.addEventListener( 'resize', onWindowResize, false );
   cameraSpinControl.onWindowResize();
 
@@ -83,13 +83,7 @@ For large rotations with one gesture, SpinControls continues to rotate when the 
 
 ### Camera pivot at application defined point
 
-Sometimes you'ed like the camera to rotate around a point of interest that is not in the center of the screen.  The application can set the pivot point to say the intersection of the mouse/pointer with a 3D model. Also enables dolly/zoom towards pointer position.  See example_camera_spin_pointer_pivot.html.
-```
-controls.isTargetOffCenter = true;
-...
-var intersects = raycaster.intersectObjects( raycastable );
-controls.setTargetPosition(intersects[0].point);
-```
+Sometimes you'ed like the camera to rotate around a point of interest that is not in the center of the screen.  The application can set the pivot point to say the intersection of the mouse/pointer with a 3D model. Also enables dolly/zoom towards pointer position.  See index.html.
 
 ### Rotation of THREE.Object3D
 
@@ -101,7 +95,6 @@ Use SpinControls when you want:
 
 *   Direct touch feel for THREE.Objects or the camera.
 *   Rotation when pointer is beyond object or viewport.
-*   Tried the rest, need the best.
 
 
 ## Links that helped

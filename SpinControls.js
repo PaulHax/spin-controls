@@ -20,16 +20,17 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.enabled = true;
 
 	this.rotateSensitivity = 1.0; // Keep at 1 for direct touching feel
-	this.relativelySpinOffTrackball = true;
-	this.enableDamping = true;
+	this.relativelySpinOffTrackball = true; // Rotation continues relativly when pointer is beyond trackball
+	this.enableDamping = true; // True for movement with momentum after pointer release on control.update 
 	this.dampingFactor = 5; // Increase for more friction
-	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning to an axis
+	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning to about an axis
 
 	// Raycast projects pointer line through camera frustum for accurate trackball control. 
 	// Shoemake has direct touching feel of pointer on orthographically projected sphere but jumps at sphere edge.
 	// Holyroyd smooths between sphere and hyperbola to avoid jump at sphere edge.
 	// Azimuthal from Yasuhiro Fujii has unlimited rotation behond the sphere edge.
-	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 'shoemake', HOLROYD: 'holroyd', AZIMUTHAL: 'azimuthal', RAYCAST: 'raycast'};
+	this.POINTER_SPHERE_MAPPING = { SHOEMAKE: 'shoemake', HOLROYD: 'holroyd', 
+		AZIMUTHAL: 'azimuthal', RAYCAST: 'raycast' };
 
 	// Base this on angle change around sphere edge?
 	this.offTrackBallVelocityGainMap = {
@@ -41,7 +42,8 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	// Internals
 	this._pointerMapping = this.POINTER_SPHERE_MAPPING.RAYCAST;
-	this._offTrackBallVelocityGain = this.offTrackBallVelocityGainMap[this._pointerMapping]
+	this._offTrackBallVelocityGain = this.offTrackBallVelocityGainMap[this._pointerMapping];
+	this._pointerUpVelDamping = 2000;
 
 	this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
@@ -57,7 +59,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 		_isPointerDown = false,
 
-		
 		_EPS = 0.000001;
 
 	var changeEvent = { type: 'change' };
@@ -470,7 +471,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 							/ Math.atan( _this.trackballRadius / objectToCamera.length() ); // Ball field of view angle size
 						objToPointer.normalize();						
 						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcPerBall / deltaTime;
-						_angularVelocity.setLength( deltaRadius * this._offTrackBallVelocityGain ); // Just set it because we are touching trackball without sliding
+						_angularVelocity.setLength( deltaRadius * _this._offTrackBallVelocityGain ); // Just set it because we are touching trackball without sliding
 
 						// Find polar angle change
 						lastPointOnSphere.copy( getPointerInSphere( lastNdc ) );
@@ -499,8 +500,10 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	// call like this: spinControl.setPointerToSphereMapping(spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE)
 	this.setPointerToSphereMapping = function ( mappingTechnique ) {
-		this._pointerMapping = mappingTechnique;
-		this._offTrackBallVelocityGain = this.offTrackBallVelocityGainMap[this._pointerMapping]
+
+		_this._pointerMapping = mappingTechnique;
+		_this._offTrackBallVelocityGain = _this.offTrackBallVelocityGainMap[_this._pointerMapping];
+
 	}
 
 	// listeners
@@ -521,6 +524,14 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.handlePointerUp = function ( event ) {
 
 		event.preventDefault();
+
+		if( !_this.hasPointerMovedThisFrame ) {
+
+			// To support subtle touches do big dampening, not just zeroing velocity
+			var deltaTime = ( event.timeStamp - _lastPointerEventTime ) / 1000.0;
+			_angularVelocity.multiplyScalar( 1 / ( _this._pointerUpVelDamping * Math.pow(deltaTime, 2) + _this.dampingFactor * deltaTime + 1) );
+		
+		}
 		
 		_isPointerDown = false;
 
@@ -554,10 +565,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	function onMouseUp( event ) {
 
 		if ( _this.enabled === false ) return;
-
-		if( !_this.hasPointerMovedThisFrame || !_this.enableDamping ) {
-			_angularVelocity.set( 0, 0, 0 );
-		}
 
 		document.removeEventListener( 'mousemove', onMouseMove );
 		document.removeEventListener( 'mouseup', onMouseUp );
@@ -605,14 +612,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	function onTouchEnd( event ) {
 
 		if( _this.enabled === false ) return;
-
-		if( !_this.hasPointerMovedThisFrame ) {
-			
-			// To support subtle touches do big dampening, not zeroing it
-			var deltaTime = ( event.timeStamp - _lastPointerEventTime ) / 1000.0;
-			_angularVelocity.multiplyScalar( 1 / ( 10 * deltaTime * _this.dampingFactor + 1 ) ) 
-		
-		}
 
 		_this.handlePointerUp( event );
 
