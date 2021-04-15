@@ -624,8 +624,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	this.dispose = function () {
 
-		_this.domElement.removeEventListener( 'resize', onWindowResize );
-
 		_this.domElement.removeEventListener( 'mousedown', onMouseDown );
 		document.removeEventListener( 'mousemove', onMouseMove );
 		document.removeEventListener( 'mouseup', onMouseUp );
@@ -636,7 +634,6 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 	};
 
-	_this.domElement.addEventListener( 'resize', onWindowResize );	
 	_this.domElement.addEventListener( 'mousedown', onMouseDown );
 
 	_this.domElement.addEventListener( 'touchstart', onTouchStart, {passive: false} );
