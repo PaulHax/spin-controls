@@ -20,7 +20,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 	this.enabled = true;
 
 	this.rotateSensitivity = 1.0; // Keep at 1 for direct touching feel
-	this.relativelySpinOffTrackball = true; // Rotation continues relativly when pointer is beyond trackball
+	this.relativelySpinOffTrackball = true; // Rotation continues relatively when pointer is beyond trackball
 	this.enableDamping = true; // True for movement with momentum after pointer release on control.update 
 	this.dampingFactor = 5; // Increase for more friction
 	this.spinAxisConstraint; // Set to a THREE.Vector3 to limit spinning to about an axis
@@ -256,8 +256,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			objToPointer.subVectors( pointerNdcScreen, objToPointer ); 
 
 			// Normalize objToPointer by object screen size
-			// so objToPointer of lenght 1 is 1 object radius distance from object center.
-			// Should we simplify if Orthographic camera?
+			// so objToPointer of length 1 is 1 object radius distance from object center.
 			objEdgePos.setFromMatrixPosition( _this.object.matrixWorld ); // objEdgePos is still aspirational on this line
 			offset.set( _this.trackballRadius, 0, 0 );
 
@@ -407,10 +406,11 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			
 			pointerNdc.copy( getPointerInNdc( pointerScreenX, pointerScreenY ) );
 
-			objToPointer.copy( getObjectToPointer( pointerNdc ) )
+			objToPointer.copy( getObjectToPointer( pointerNdc ) );
 
 			if ( objToPointer.lengthSq() < 1 || !this.relativelySpinOffTrackball ) {
-				// Pointer is within radius of trackball circle on screen
+
+				// Pointer is within radius of trackball circle on the screen
 				// or relative rotation off trackball disabled
 
 				_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
@@ -436,22 +436,25 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 				_wasLastPointerEventOnSphere = true;
 			
 			} else {
+
 				// Pointer off trackball
 
 				if ( _wasLastPointerEventOnSphere ) {
 
-					// Moved off sphere 
+					// Just moved off trackball
+
 					_angularVelocity.set( 0, 0, 0 );
 					_lastVelTime = time;
 					
 				} 
 				else {
-					// Still off sphere
+
+					// Pointer still off trackball this frame
 					
 					if( deltaTime > 0 ) { // Sometimes zero due to timer precision?		
 						
-						// Relative movement
-						//ToDo: Simplify by find pointer's delta polar coordinates with THREE.Sphere?
+						// Relatively spin towards pointer from trackball center by change in distance amount
+						// Simplify by finding pointer's delta polar coordinates with THREE.Sphere?
 
 						lastNdc.copy( getPointerInNdc( _pointerScreen.x, _pointerScreen.y ) );
 						
@@ -459,18 +462,40 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 						// Find change in pointer radius to trackball center
 						objectPos.setFromMatrixPosition( _this.object.matrixWorld );
-						objectToCamera.copy( _this.camera.position ).sub( objectPos );
+
+						if ( _this.camera.isPerspectiveCamera ) {
+
+							objectToCamera.copy( _this.camera.position ).sub( objectPos );
+
+						} else { // Assuming orthographic
+
+							_this.camera.getWorldDirection( objectToCamera );
+							objectToCamera.negate();
+
+						}
 					
 						_pointOnSphere.copy( getPointerInSphere( pointerNdc ) );
 
 						// Radius angular velocity direction
 						_angularVelocity.crossVectors( objectToCamera, _pointOnSphere );
 						
-						// Find radius velocity magnatude
-						var ndcPerBall = ( 2 / _this.camera.fov ) // NDC per field of view degree
-							/ Math.atan( _this.trackballRadius / objectToCamera.length() ); // Ball field of view angle size
+						// Find radius change over time
+
+						var ndcToBall;
+
+						if ( _this.camera.isPerspectiveCamera ) {
+
+							ndcToBall = ( 2 / _this.camera.fov ) // NDC per field of view degree
+								/ Math.atan( _this.trackballRadius / objectToCamera.length() ); // Ball field of view angle size
+
+						} else { //Assume orthographic
+
+							ndcToBall = _this.trackballRadius / ( ( _this.camera.top - _this.camera.bottom ) / _this.camera.zoom * 2 );
+
+						}
+
 						objToPointer.normalize();						
-						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcPerBall / deltaTime;
+						var deltaRadius = deltaMouse.dot( objToPointer ) * ndcToBall / deltaTime;
 						_angularVelocity.setLength( deltaRadius * _this._offTrackBallVelocityGain ); // Just set it because we are touching trackball without sliding
 
 						// Find polar angle change

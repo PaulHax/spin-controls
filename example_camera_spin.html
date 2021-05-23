@@ -38,6 +38,7 @@
 
 		<script>
 			var camera, scene, renderer, trackballWidget, meshMaterial, lineMaterial;
+			var orthographicHeight = 1000;
 			init();
 			render();
       		animate( 0 );
@@ -52,11 +53,27 @@
 				scene = new THREE.Scene();
 				scene.add( new THREE.GridHelper( 1000, 6 ) );
 
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				var aspect = window.innerWidth / window.innerHeight;
+				camera = new THREE.PerspectiveCamera( 40, aspect, 1, 10000 );
 
-				camera.position.set(0, 0, 500);
+				// var width = orthographicHeight * aspect;
+				// camera = new THREE.OrthographicCamera( width / -2, width / 2, 
+				// 	orthographicHeight / 2, orthographicHeight / -2, .1, 2000 );
+
+				// Set offset from pivot point before creating CameraSpinControls
+				camera.position.set(0, 0, 500); 
 
 				cameraSpinControl = new CameraSpinControls( camera, renderer.domElement );
+
+				if ( camera.isOrthographicCamera ) {
+
+					//  With orthographic projection calculations are more direct
+					// 	using POINTER_SPHERE_MAPPING.HOLROYD or SHOEMAKE
+					cameraSpinControl.spinControl.setPointerToSphereMapping(
+						cameraSpinControl.spinControl.POINTER_SPHERE_MAPPING.SHOEMAKE );
+
+				}
+					
 
 				var light = new THREE.DirectionalLight( 0xffffff, 2 );
 				light.position.set( 1, 1, 1 );
@@ -113,10 +130,25 @@
       
 			function onWindowResize() {
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();        
+				var aspect = window.innerWidth / window.innerHeight;
+
+				if ( camera.isPerspectiveCamera ) {
+					
+					camera.aspect = aspect;
+				
+				} else if( camera.isOrthographicCamera ) {
+
+					var width = orthographicHeight * aspect;
+					camera.left = width / -2;
+					camera.right = width / 2;
+
+				}
+
+				camera.updateProjectionMatrix();
 				renderer.setSize( window.innerWidth, window.innerHeight );
+
         		cameraSpinControl.onWindowResize();
+
 				render();
 
 			}

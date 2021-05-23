@@ -124,25 +124,25 @@ CameraSpinControls = function ( camera, domElement ) {
 
 		return function movedTarget() {
 
-			scope.targetObj.updateWorldMatrix(true, false);
-			scope.object.updateWorldMatrix(true, false);
-			transformTo(scope.trackballToObject, scope.targetObj.matrixWorld, scope.object.matrixWorld);
+			scope.targetObj.updateWorldMatrix( true, false );
+			scope.object.updateWorldMatrix( true, false );
+			transformTo( scope.trackballToObject, scope.targetObj.matrixWorld, scope.object.matrixWorld );
 			
 			// restrict radius to be between desired limits
-			v.setFromMatrixPosition(scope.trackballToObject);
-			v.multiplyScalar(scale);
-			v.clampLength(scope.minDistance, scope.maxDistance);
-			scope.trackballToObject.setPosition(v);
+			v.setFromMatrixPosition( scope.trackballToObject );
+			v.multiplyScalar( scale );
+			v.clampLength( scope.minDistance, scope.maxDistance );
+			scope.trackballToObject.setPosition( v );
 			scope.object.matrix.copy( scope.targetObj.matrixWorld );
-			scope.object.matrix.multiply(scope.trackballToObject);
+			scope.object.matrix.multiply( scope.trackballToObject );
 
-			this.ajustTrackballRadius();
+			this.adjustTrackballRadius();
 		}
 	}();
 
-	this.setTargetPosition = function (positionVector) {
+	this.setTargetPosition = function ( positionVector ) {
 		
-		scope.target.copy(positionVector);
+		scope.target.copy( positionVector );
 		this.movedTarget();
 
 	}
@@ -160,17 +160,17 @@ CameraSpinControls = function ( camera, domElement ) {
 
 			// move target to panned location
 			scope.target.add( panOffset );
-			scope.targetObj.updateWorldMatrix(true, false);
+			scope.targetObj.updateWorldMatrix( true, false );
 
-			v.setFromMatrixPosition(scope.trackballToObject);
-			v.multiplyScalar(scale);
+			v.setFromMatrixPosition( scope.trackballToObject );
+			v.multiplyScalar( scale );
 			// restrict radius to be between desired limits
-			v.clampLength(scope.minDistance, scope.maxDistance);
+			v.clampLength( scope.minDistance, scope.maxDistance );
 			scope.trackballToObject.setPosition(v);
 			scope.object.matrix.copy( scope.targetObj.matrixWorld );
-			scope.object.matrix.multiply(scope.trackballToObject);
+			scope.object.matrix.multiply( scope.trackballToObject );
 
-			this.ajustTrackballRadius();
+			this.adjustTrackballRadius();
 
 			scope.object.matrix.decompose( scope.object.position, scope.object.quaternion, scope.object.scale );
 
@@ -215,29 +215,31 @@ CameraSpinControls = function ( camera, domElement ) {
 	this.onWindowResize = function () {
 
 		scope.spinControl.onWindowResize();
-		scope.ajustTrackballRadius();
+		scope.adjustTrackballRadius();
 
 	}
 
-	this.ajustTrackballRadius = function () {
+	this.adjustTrackballRadius = function () {
 	  
+		var TRACKBALL_PERCENT_OF_SCREEN = .9;
 		var v = new THREE.Vector3();
 		var cameraToTrackball = new THREE.Matrix4();
 
-		return function ajustTrackballRadius() {
+		return function adjustTrackballRadius() {
 
 			if ( scope.object.isPerspectiveCamera ) {
 
-				var limitingFov = Math.min(scope.object.fov,  scope.object.fov * scope.object.aspect);
+				var limitingFov = Math.min( scope.object.fov,  scope.object.fov * scope.object.aspect );
 				var distanceToScreenSize = Math.sin( ( limitingFov / 2 ) * Math.PI / 180.0 );
 				
-				transformTo(cameraToTrackball, scope.object.matrix, scope.targetObj.matrixWorld);
-				v.setFromMatrixPosition(cameraToTrackball);
-				scope.spinControl.trackballRadius = .9 * v.length() * distanceToScreenSize;
+				transformTo( cameraToTrackball, scope.object.matrix, scope.targetObj.matrixWorld );
+				v.setFromMatrixPosition( cameraToTrackball );
+				scope.spinControl.trackballRadius = TRACKBALL_PERCENT_OF_SCREEN * v.length() * distanceToScreenSize;
 
-			} else {
+			} else { // assume orthographic camera
 
-				console.warn( 'WARNING: CameraSpinControls.js encountered an unknown camera type' );
+				var limitingDimension = Math.min( scope.object.right - scope.object.left, scope.object.top - scope.object.bottom ) / scope.object.zoom;
+				scope.spinControl.trackballRadius = TRACKBALL_PERCENT_OF_SCREEN / 2  * limitingDimension;
 
 			}
 		};
@@ -934,8 +936,8 @@ CameraSpinControls = function ( camera, domElement ) {
 
   	} );
 	
-	// Starts touch interfaces off right
-	this.ajustTrackballRadius();
+	// Starts touch control off right
+	this.adjustTrackballRadius();
 	
 	// force an update at start
 	this.update();
