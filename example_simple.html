@@ -38,6 +38,7 @@
 
 		<script>
 			var camera, scene, renderer;
+			var orthographicHeight = 1000;
 			init();
 			render();
       		animate(0);
@@ -49,13 +50,14 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
         
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
-        		// var width = 2;
-				// var height = 2;
-				// camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+				var aspect = window.innerWidth / window.innerHeight;
+				camera = new THREE.PerspectiveCamera( 40, aspect, 1, 3000 );
+        		// var width = orthographicHeight * aspect;
+				// camera = new THREE.OrthographicCamera( width / -2, width / 2, 
+				// 	orthographicHeight / 2, orthographicHeight / -2, 1, 2000 );
 				
 				camera.position.set( 600, 300, 500 );
-				camera.lookAt( .5, .4, 0 );
+				camera.lookAt( 0, 0, 0 );
 				
 				scene = new THREE.Scene();
 
@@ -65,9 +67,9 @@
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
 				
+				// A sphere to spin
 				var radius = 225;
 				var group = new THREE.Group();
-				group.position.set(0, 0, 0);
 				var geometry = new THREE.SphereBufferGeometry( radius, 16, 16 );
 				var lineMaterial = new THREE.LineBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.5 } );
 				var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x156289, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true } );
@@ -76,7 +78,10 @@
 				scene.add( group );
         
 				spinControl = new SpinControls( group, radius, camera, renderer.domElement );
-				// spinner.setPointerToSphereMapping( spinControl.POINTER_SPHERE_MAPPING.HOLROYD ) // options
+				
+				// smooth options combo
+				spinControl.setPointerToSphereMapping( spinControl.POINTER_SPHERE_MAPPING.HOLROYD ) 
+				// spinControl.relativelySpinOffTrackball = false;
         
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -84,10 +89,25 @@
       
 			function onWindowResize() {
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();        
+				var aspect = window.innerWidth / window.innerHeight;
+
+				if ( camera.isPerspectiveCamera ) {
+					
+					camera.aspect = aspect;
+				
+				} else if( camera.isOrthographicCamera ) {
+
+					var width = orthographicHeight * aspect;
+					camera.left = width / -2;
+					camera.right = width / 2;
+
+				}
+
+				camera.updateProjectionMatrix();
 				renderer.setSize( window.innerWidth, window.innerHeight );
+
         		spinControl.onWindowResize();
+
 				render();
 
 			}
