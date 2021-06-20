@@ -1,5 +1,5 @@
 /**
- * @author qiao / https://github.com/qiao
+* @author qiao / https://github.com/qiao
  * @author mrdoob / http://mrdoob.com
  * @author alteredq / http://alteredqualia.com/
  * @author WestLangley / http://github.com/WestLangley
@@ -65,9 +65,8 @@ CameraSpinControls = function ( camera, domElement ) {
 	this.enableZoom = true;
 	this.zoomSpeed = 1.0;
 
-	// Set to false to disable rotating
+	// Use setEnableRotate(isEnabled) function
 	this.enableRotate = true;
-	this.rotateSpeed = 1.0;
 
 	// Set to false to disable panning
 	this.enablePan = true;
@@ -94,6 +93,13 @@ CameraSpinControls = function ( camera, domElement ) {
 	//
 	// public methods
 	//
+
+	this.setEnableRotate = function (isEnabled) {
+
+		scope.enableRotate = isEnabled;
+		scope.spinControl.enabled = isEnabled;
+
+	};
 
 	this.saveState = function () {
 
