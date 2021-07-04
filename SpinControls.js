@@ -117,7 +117,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 			// q1.setFromUnitVectors(p0, p1);
 			
 			q0.set(p0.x, p0.y, p0.z, 1.0);
-			angleSpeed = q1.angleTo(q0) / timeDelta;
+			var angleSpeed = q1.angleTo(q0) / timeDelta;
 
 			// Just set velocity because we are touching trackball without sliding
 			_angularVelocity.crossVectors( p0, p1);
@@ -500,7 +500,7 @@ var SpinControls = function ( object, trackBallRadius, camera, domElement ) {
 
 						// Find polar angle change
 						lastPointOnSphere.copy( getPointerInSphere( lastNdc ) );
-						angle = lastPointOnSphere.angleTo( _pointOnSphere ) / deltaTime;
+						var angle = lastPointOnSphere.angleTo( _pointOnSphere ) / deltaTime;
 						polarVel.crossVectors( lastPointOnSphere, _pointOnSphere );
 						polarVel.setLength( angle );
 
