@@ -1,7 +1,8 @@
+## Now that three.js added [arcball controls](https://threejs.org/examples/?q=arc#misc_controls_arcball), consiter using that rather than this project.
+
 # SpinControls for three.js
 
 Trackball style control for three.js Object3Ds and Cameras. Featuring pointer to trackball accuracy and unlimited rotation. 
-
 
 ## [Demo](https://paulhax.github.io/spin-controls/)
 
